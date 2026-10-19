@@ -3,7 +3,7 @@
 
 ## Roles del equipo
 - **Product Owner:** MC. Román Fernando López González
-- **Scrum Master / Equipo:** [Diego Santiago Martínez Larreta]
+- **Scrum Master / Equipo:** [Sebastián Loza Covarrubias]
 
 ## Backlog completo (extracto W01–W06)
 

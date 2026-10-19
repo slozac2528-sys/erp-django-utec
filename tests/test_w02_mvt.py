@@ -102,7 +102,7 @@ class StaticFilesConfigTest(TestCase):
         """WhiteNoise debe ir DESPUÉS de SecurityMiddleware."""
         from django.conf import settings
         m = settings.MIDDLEWARE
-        idx_sec = m.index('django.middleware.security.SecurityMiddleware')
-        idx_wn = m.index('whitenoise.middleware.WhiteNoiseMiddleware')
+        idx_sec  = m.index('django.middleware.security.SecurityMiddleware')
+        idx_wn   = m.index('whitenoise.middleware.WhiteNoiseMiddleware')
         self.assertLess(idx_sec, idx_wn,
                         "SecurityMiddleware debe ir ANTES que WhiteNoise")

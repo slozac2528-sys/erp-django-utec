@@ -10,4 +10,4 @@ def index(request):
         'descripcion': 'Ciclo de ventas, pedidos y facturación.',
         'espiral': 'Espiral 3 · W07',
     }
-    return render(request, 'ventas/index.html', context)
+    return render(request, 'ventas/index.html', context)

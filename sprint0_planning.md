@@ -10,10 +10,10 @@ y repositorio en GitHub con al menos 10 commits.
 
 | ID | Historia | Puntos | Estado |
 |---|---|---|---|
-| HU-E1-01 | Entorno portable USB | 3 | 🔄 En progreso |
-| HU-E1-02 | Scripts de sincronización | 2 | 🔄 En progreso |
-| HU-E1-03 | Repositorio en GitHub | 2 | ⏳ Pendiente |
-| HU-E1-04 | Despliegue en Render.com | 3 | ⏳ Pendiente |
+| HU-E1-01 | Entorno portable USB | 3 | ✅|
+| HU-E1-02 | Scripts de sincronización | 2 | ✅|
+| HU-E1-03 | Repositorio en GitHub | 2 | ✅|
+| HU-E1-04 | Despliegue en Render.com | 3 | ✅ Pendiente |
 
 **Total de puntos del sprint:** 10
 
@@ -39,7 +39,6 @@ y repositorio en GitHub con al menos 10 commits.
 - Repositorio con rama main + historial de commits
 - Ficha Schmelkes E1 completa (W03)
 
-
 ## Sprint Backlog — W02 (actualización de estados)
 
 | Tarea | Estado |
@@ -52,3 +51,19 @@ y repositorio en GitHub con al menos 10 commits.
 | Actualizar requirements.txt (gunicorn, psycopg2) | ✅ |
 | Crear tests/test_w02_mvt.py — 12 tests OK | ✅ |
 | HU-E1-03 Repositorio GitHub: avance W02 commiteado | ✅ |
+
+## Sprint 0 — Estado final W03
+
+| HU | Estado | Puntos entregados |
+|---|---|---|
+| HU-E1-01 Entorno portable USB | ✅ Completada | 3 |
+| HU-E1-02 Scripts sincronización | ✅ Completada | 2 |
+| HU-E1-03 Repositorio GitHub | ✅ Completada | 2 |
+| HU-E1-04 Despliegue Render.com | ✅ Completada | 3 |
+| **Total entregado** | | **10 / 10** |
+
+## Hito M1 — ALCANZADO ✅
+- URL pública: https://erp-django-utec.onrender.com
+- Tests: Ran 33 tests → OK
+- Commits: ≥ 6 en rama main
+- Fecha: ___/___/_____

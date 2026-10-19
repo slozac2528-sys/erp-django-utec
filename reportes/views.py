@@ -10,4 +10,4 @@ def index(request):
         'descripcion': 'Dashboard, KPIs y exportación de datos.',
         'espiral': 'Espiral 7 · W19',
     }
-    return render(request, 'reportes/index.html', context)
+    return render(request, 'reportes/index.html', context)

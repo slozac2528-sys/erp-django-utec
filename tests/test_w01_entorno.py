@@ -4,7 +4,7 @@ Ejecutar con:
     python manage.py test tests.test_w01_entorno --verbosity=2
 
 Resultado esperado:
-    Ran 11 tests in X.XXXs
+    Ran 8 tests in X.XXXs
     OK
 """
 import sys
@@ -96,4 +96,4 @@ class ConfiguracionDjangoTest(TestCase):
         self.assertTrue(
             bool(settings.MEDIA_ROOT),
             "MEDIA_ROOT no está configurado en settings.py"
-        )
+        )

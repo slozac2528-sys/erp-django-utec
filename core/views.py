@@ -54,4 +54,4 @@ def bienvenida(request):
             'descripcion': 'Panel de administración Django',
         },
     ]
-    return render(request, 'bienvenida.html', {'modulos': modulos})
+    return render(request, 'bienvenida.html', {'modulos': modulos})
