@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Rye&family=Special+Elite&display=swap');
+
+:root {
+  --cuero-oscuro: #2b1a10;
+  --cuero: #4a2c17;
+  --madera: #6b4226;
+  --oro: #e0a82e;
+  --crema: #f5e6c8;
+  --rojo-rancho: #a63d2f;
+}
+
+body {
+  background: var(--cuero-oscuro);
+  color: var(--crema);
+  font-family: 'Special Elite', serif;
+}
+
+/* Barra superior y footer */
+header, nav, .navbar, footer {
+  background: var(--madera) !important;
+  border-color: var(--oro) !important;
+}
+
+/* Títulos estilo western */
+h1, h2, h3, .navbar-brand, .logo {
+  font-family: 'Rye', serif;
+  color: var(--oro) !important;
+  letter-spacing: 1px;
+}
+
+/* Tarjetas tipo cuero con costura */
+.card, [class*="card"] {
+  background: var(--cuero) !important;
+  border: 2px dashed var(--oro) !important;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.5);
+  transition: transform .2s;
+}
+.card:hover, [class*="card"]:hover {
+  transform: translateY(-4px) rotate(-.5deg);
+  border-color: var(--rojo-rancho) !important;
+}
+
+/* Títulos de las tarjetas (ahora se ven azul oscuro, casi invisibles) */
+.card a, .card h3, .card h2, .card strong {
+  color: var(--oro) !important;
+}
+
+/* Enlaces del menú */
+nav a { color: var(--crema) !important; }
+nav a:hover { color: var(--oro) !important; }
+
+/* Etiquetas Django / Python / Fable */
+.badge, .pill, .tag {
+  background: var(--cuero) !important;
+  color: var(--oro) !important;
+  border: 1px solid var(--oro) !important;
+}
+
+/* Botones */
+button, .btn {
+  background: var(--rojo-rancho);
+  color: var(--crema);
+  border: 2px solid var(--oro);
+  font-family: 'Rye', serif;
+}
