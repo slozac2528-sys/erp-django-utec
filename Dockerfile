@@ -31,7 +31,8 @@ RUN python manage.py collectstatic --no-input \
 # Exponer el puerto
 EXPOSE $PORT
 
-# Comando por defecto: iniciar Gunicorn
-   CMD python manage.py migrate --no-input && \
-       (python manage.py createsuperuser --noinput || true) && \
-       gunicorn core.wsgi --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --log-file -
+# Al arrancar (aquí SÍ existen DATABASE_URL y DJANGO_SUPERUSER_*):
+#   1) migrar  2) crear/actualizar superusuario  3) iniciar Gunicorn
+CMD python manage.py migrate --no-input && \
+    python crear_superusuario.py && \
+    gunicorn core.wsgi --bind 0.0.0.0:${PORT} --workers 2 --timeout 120 --log-file -
