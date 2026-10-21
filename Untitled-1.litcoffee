@@ -1,8 +1,8 @@
 
-Guia_Lab_W02.md
+Guia_Lab_W08.md
 100 %
-# Guía de Laboratorio — W02
-## ERP Django · Espiral 1 · Semana 2 de 24
+# Guía de Laboratorio — W08
+## ERP Django · Espiral 3 · Semana 8 de 24
 ### Técnico en Programación (SEP 3061300006-23) · UTEC Celaya
 ### Asesor: MC. Román Fernando López González
 
@@ -10,53 +10,68 @@ Guia_Lab_W02.md
 
 | Campo | Detalle |
 |---|---|
-| **Semana** | W02 de 24 |
-| **Espiral** | E1 — Infraestructura y Configuración Base |
-| **Sprint Scrum** | Sprint 0 — Desarrollo (día 2) |
-| **Hito** | Sin hito propio · Avance hacia M1 (W03) |
+| **Semana** | W08 de 24 |
+| **Espiral** | E3 — CRUD Web y Autenticación |
+| **Sprint Scrum** | Sprint 2 — Desarrollo |
+| **Hito** | Sin hito propio · Avance hacia M3 (W09) |
 | **Horario** | 16:45 – 19:45 (180 min) |
-| **Nivel Schmelkes** | 1 — Fundamentos |
-| **Hilo conductor** | "W01 puso el motor. W02 pone la carrocería: templates, estáticos y estructura MVT real." |
+| **Nivel Schmelkes** | 2 — Núcleo ERP |
+| **Hilo conductor** | "W07 abrió las ventanas para ver los datos. W08 abre las puertas para modificarlos." |
 
 ---
 
-## Conexión con W01
+## Respuesta a la tarea de investigación de W07
 
-| W01 entregó | W02 construye sobre eso |
-|---|---|
-| Proyecto Django `core` con 5 apps | Agrega templates HTML reales a cada app |
-| Vistas inline con `HttpResponse` en `urls.py` | Las migra a `views.py` usando `render()` |
-| `settings.py` base con `django-environ` | Agrega `STATIC_ROOT`, WhiteNoise y crea `settings_prod.py` |
-| `requirements.txt` básico | Lo actualiza con `gunicorn` y `psycopg2-binary` |
-| `.gitignore` y primer commit | Genera 2 commits nuevos con progreso documentado |
+> **¿Por qué `reverse_lazy` y no `reverse` en `success_url`?**
+>
+> ```python
+> # INCORRECTO — falla con ImproperlyConfigured
+> class ProductoCreateView(LoginRequiredMixin, CreateView):
+>     success_url = reverse('productos:lista')   # ← se evalúa al importar el módulo
+>                                                 #   antes de que las URLs carguen
+>
+> # CORRECTO — se evalúa en tiempo de ejecución (cuando ya cargaron las URLs)
+> class ProductoCreateView(LoginRequiredMixin, CreateView):
+>     success_url = reverse_lazy('productos:lista')  # ← lazy = diferido
+> ```
+>
+> `reverse()` se ejecuta cuando Python importa el archivo `views.py`.
+> En ese momento las URLs de Django todavía no están configuradas,
+> lo que lanza `django.core.exceptions.ImproperlyConfigured`.
+> `reverse_lazy()` devuelve un objeto proxy que solo resuelve la URL
+> cuando se accede por primera vez durante una petición real.
+>
+> **Regla:** en atributos de clase de CBV → siempre `reverse_lazy`.
+> En el cuerpo de funciones o métodos → `reverse` es correcto.
 
 ---
 
 ## Objetivos de la sesión
 
-Al terminar W02, el estudiante será capaz de:
+Al terminar W08, el estudiante será capaz de:
 
-1. Explicar el patrón MVT: **Modelo** (sin datos aún) · **Vista** `render()` · **Template** HTML con DTL
-2. Crear un sistema de diseño en `templates/base.html` con Fable 5 AzulERP (modo claro/oscuro)
-3. Construir plantillas por app que extiendan `base.html` con `{% extends %}`
-4. Migrar vistas de `urls.py` a `views.py` separando responsabilidades
-5. Configurar archivos estáticos con WhiteNoise para producción
-6. Crear la configuración de producción `settings_prod.py`
+1. Crear `forms.py` con `ModelForm` y widgets Fable 5 AzulERP para 4 apps
+2. Implementar `CreateView`, `UpdateView` y `DeleteView` protegidas con
+   `LoginRequiredMixin` como primer argumento en la herencia
+3. Agregar mensajes flash con `django.contrib.messages` en cada operación
+4. Crear 12 templates de escritura con confirmación POST en `DeleteView`
+5. Descomentar y completar las rutas de escritura en los 4 `urls.py`
+6. Escribir 12 tests que verifican autenticación, POST válido/inválido y borrado
 
 ---
 
-## Stack tecnológico de W02
+## Stack tecnológico de W08
 
-| Herramienta / Concepto | Novedad en W02 | Descripción |
+| Herramienta / Concepto | Novedad en W08 | Descripción |
 |---|---|---|
-| Django Template Language (DTL) | ✅ Nuevo | Motor de plantillas: `{% %}`, `{{ }}`, `{% block %}`, `{% extends %}` |
-| `render()` de `django.shortcuts` | ✅ Nuevo | Reemplaza a `HttpResponse`; recibe request + template + contexto |
-| WhiteNoise 6.x | ✅ Nuevo | Middleware que sirve estáticos sin Nginx en producción |
-| Bootstrap 5.3 CDN | ✅ Nuevo | Framework CSS via CDN (sin archivos locales en W02) |
-| Google Fonts CDN | ✅ Nuevo | Playfair Display + Inter (tipografía Fable 5 AzulERP) |
-| `collectstatic` | ✅ Nuevo | Comando Django para recolectar estáticos antes del deploy |
-| `core/settings_prod.py` | ✅ Nuevo | Configuración separada con `DEBUG=False` para Render.com |
-| `gunicorn` 21.x | ✅ Nuevo | Servidor WSGI de producción (usado en W03 con Docker/Render) |
+| `CreateView` (CBV) | ✅ Nuevo | Vista genérica para formularios de alta |
+| `UpdateView` (CBV) | ✅ Nuevo | Vista genérica para edición |
+| `DeleteView` (CBV) | ✅ Nuevo | Vista genérica de confirmación y borrado |
+| `LoginRequiredMixin` | ✅ Nuevo | Protege vistas; redirige a login si no autenticado |
+| `ModelForm` | ✅ Nuevo | Formulario generado desde el modelo |
+| `reverse_lazy` | ✅ Nuevo | URL diferida para `success_url` en CBV |
+| `django.contrib.messages` | ✅ Nuevo | Mensajes flash (success, error, warning) |
+| `{% csrf_token %}` | ya usado | Token de seguridad obligatorio en formularios POST |
 
 ---
 
@@ -64,1391 +79,1478 @@ Al terminar W02, el estudiante será capaz de:
 
 | Parte | Actividad | Tiempo |
 |---|---|---|
-| Arranque | Daily Scrum + revisión M0 + `iniciar_sesion.bat` | 15 min |
-| Parte 1 | `templates/base.html` — Fable 5 AzulERP completo | 40 min |
-| Parte 2 | 5 plantillas `index.html` por app | 20 min |
-| Parte 3 | Refactorizar vistas: `urls.py` → `views.py` con `render()` | 30 min |
-| Parte 4 | Archivos estáticos y WhiteNoise | 15 min |
-| Parte 5 | `settings_prod.py` + `requirements.txt` actualizado | 15 min |
-| Parte 6 | Tests W02 (12 pruebas ejecutables) | 20 min |
-| Cierre | Commit · `finalizar_sesion.bat` · checklist · hilo → W03 | 15 min |
+| Arranque | Daily Scrum + verificar W07 | 10 min |
+| Parte 1 | `forms.py` × 4 apps con widgets Fable 5 | 20 min |
+| Parte 2 | Vistas de escritura: Producto (Create/Update/Delete) | 20 min |
+| Parte 3 | Vistas de escritura: Cliente + Proveedor | 15 min |
+| Parte 4 | Vistas de escritura: Venta (función + DeleteView) | 15 min |
+| Parte 5 | 12 templates de escritura Fable 5 AzulERP | 35 min |
+| **Commit parcial** | Punto de control seguro | 5 min |
+| Parte 6 | Actualizar `urls.py` × 4 apps | 10 min |
+| Parte 7 | Tests W08 (12 pruebas de escritura) | 20 min |
+| Cierre | Commit final · `finalizar_sesion.bat` · hilo → W09 | 10 min |
+| Buffer | | 20 min |
 | **Total** | | **180 min** |
 
 ---
 
-## ARRANQUE — Daily Scrum (15 min)
-
-### Ejecutar la sesión
+## ARRANQUE — Daily Scrum (10 min)
 
 ```cmd
 E:\iniciar_sesion.bat
 ```
 
-La terminal se abre en `C:\Temp_Workspace_ERP` con `env_erp` activo.
-
-### Daily Scrum (≤ 15 min · 3 preguntas)
+### Daily Scrum
 
 ```
-1. ¿Qué hice en W01?
-   → Configuré el entorno portable USB, creé el proyecto Django
-     con 5 apps y realicé el primer commit en GitHub.
+1. ¿Qué hice en W07?
+   → Implementé ListView y DetailView para 4 entidades,
+     creé 8 templates Fable 5 AzulERP y actualicé las URLs.
 
-2. ¿Qué haré en W02?
-   → Crearé el sistema de templates Fable 5 AzulERP, migraré
-     las vistas a views.py y configuraré los archivos estáticos.
+2. ¿Qué haré en W08?
+   → Crearé los forms.py, implementaré CreateView/UpdateView/DeleteView
+     con LoginRequiredMixin y messages flash.
 
 3. ¿Tengo algún impedimento?
-   → (registrar aquí cualquier problema técnico pendiente de W01)
+   → (registrar aquí)
 ```
 
-### Verificar estado de W01 antes de continuar
+### Verificar estado
 
 ```cmd
 python manage.py check
-git log --oneline
+python manage.py test tests --verbosity=0
 ```
 
-**Resultado esperado:**
-```
-System check identified no issues (0 silenced).
-abc1234 Sprint 0 W01: suite de tests de entorno (11 tests OK)
-def5678 Sprint 0 W01: entorno portable + proyecto Django base + 5 apps
-```
-
-> Si `manage.py check` muestra errores, resolverlos antes de avanzar.
+**Resultado esperado:** `System check identified no issues` · `Ran 78 tests … OK`
 
 ---
 
-## PARTE 1 — Sistema de Templates Fable 5 AzulERP (40 min)
+## PARTE 1 — `forms.py` × 4 apps con widgets Fable 5 (20 min)
 
-### 1.1 Verificar estructura de carpetas
+### 1.1 Concepto: `ModelForm` vs `Form`
 
-```cmd
-dir templates\
+```
+Form        → campos definidos manualmente, sin relación directa al modelo
+ModelForm   → campos generados automáticamente desde Meta.model
+              ventaja: validaciones del modelo se heredan automáticamente
+              ventaja: save() crea/actualiza el objeto directamente
 ```
 
-Si `templates\` no existe (debería existir de W01):
-```cmd
-mkdir templates
-mkdir templates\registration
-```
+**Regla de seguridad:** usar `Meta.fields = [...]` (lista explícita),
+nunca `Meta.fields = '__all__'` — evita que campos internos
+(como `creado` o `activo`) sean enviados por el usuario.
 
 ---
 
-### 1.2 Crear `templates/base.html`
+### 1.2 `productos/forms.py`
 
-Abrir VS Code → nuevo archivo → guardar como `templates\base.html`.
-Este archivo es la plantilla madre de todo el ERP:
+```python
+# productos/forms.py
+"""Formularios de la app productos — W08."""
+from django import forms
 
-```html
-<!DOCTYPE html>
-<html lang="es" data-theme="light">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0A2342">
-    <title>{% block title %}ERP Django{% endblock %} · UTEC Celaya</title>
+from .models import Producto
 
-    <!-- Google Fonts: Playfair Display + Inter + JetBrains Mono -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet">
 
-    <!-- Bootstrap 5 -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-          rel="stylesheet">
+class ProductoForm(forms.ModelForm):
+    """Formulario para crear y editar productos.
 
-    <!-- Fable 5 AzulERP — Design System -->
-    <style>
-        /* TOKENS MODO DÍA */
-        :root, [data-theme="light"] {
-            --clr-navy   : #0A2342;
-            --clr-royal  : #1B4F8A;
-            --clr-sky    : #4A90D9;
-            --clr-ice    : #E8F0FB;
-            --clr-gold   : #B8860B;
-            --clr-amber  : #D4A017;
-            --clr-cream  : #FDF8E8;
-            --clr-bg     : #F5F7FA;
-            --clr-surface: #FFFFFF;
-            --clr-text   : #1A1A2E;
-            --clr-muted  : #5A6A7E;
-            --clr-border : #C8D8EC;
-            --clr-danger : #C0392B;
-            --clr-ok     : #1A7A4A;
-            --shadow-sm  : 0 1px 4px rgba(10,35,66,.08);
-            --shadow-md  : 0 4px 16px rgba(10,35,66,.12);
-        }
-        /* TOKENS MODO NOCHE */
-        [data-theme="dark"] {
-            --clr-navy   : #1E3A5F;
-            --clr-royal  : #2E5F9E;
-            --clr-sky    : #6BAEE8;
-            --clr-ice    : #1A2A3A;
-            --clr-gold   : #D4AF37;
-            --clr-amber  : #E8C547;
-            --clr-cream  : #2A2510;
-            --clr-bg     : #0D1B2A;
-            --clr-surface: #142033;
-            --clr-text   : #E2EAF4;
-            --clr-muted  : #8AA0B8;
-            --clr-border : #2A3F58;
-            --clr-danger : #E74C3C;
-            --clr-ok     : #2ECC71;
-            --shadow-sm  : 0 1px 4px rgba(0,0,0,.3);
-            --shadow-md  : 0 4px 16px rgba(0,0,0,.4);
-        }
-        /* BASE */
-        *, *::before, *::after { box-sizing: border-box; }
-        body {
-            font-family: 'Inter','Segoe UI',sans-serif;
-            font-size: 15px;
-            background: var(--clr-bg);
-            color: var(--clr-text);
-            line-height: 1.6;
-            transition: background .25s, color .25s;
-            margin: 0;
-        }
-        /* NAVBAR */
-        .erp-navbar {
-            background: var(--clr-navy);
-            border-bottom: 3px solid var(--clr-gold);
-            padding: .65rem 1.5rem;
-            display: flex; align-items: center;
-            justify-content: space-between; flex-wrap: wrap; gap: .5rem;
-            box-shadow: var(--shadow-md);
-        }
-        .erp-brand {
-            font-family: 'Playfair Display',Georgia,serif;
-            font-size: 1.3rem; font-weight: 700;
-            color: var(--clr-gold) !important;
-            text-decoration: none; letter-spacing: .04em;
-        }
-        .erp-brand span { color: rgba(255,255,255,.7); font-weight: 300; font-size: .85em; }
-        .erp-nav-links { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; }
-        .erp-nav-link {
-            color: rgba(255,255,255,.82) !important;
-            font-size: .88rem; font-weight: 500;
-            padding: .35rem .75rem; border-radius: 6px;
-            text-decoration: none;
-            transition: background .2s, color .2s;
-        }
-        .erp-nav-link:hover, .erp-nav-link.active {
-            background: var(--clr-royal); color: #FFF !important;
-        }
-        .theme-toggle {
-            background: var(--clr-gold); color: var(--clr-navy);
-            border: none; border-radius: 50%;
-            width: 32px; height: 32px; font-size: .9rem;
-            cursor: pointer; transition: transform .2s;
-        }
-        .theme-toggle:hover { transform: rotate(20deg); }
-        /* CONTENIDO */
-        .erp-main { padding: 2rem 0; min-height: calc(100vh - 110px); }
-        /* CARDS */
-        .erp-card {
-            background: var(--clr-surface);
-            border: 1px solid var(--clr-border);
-            border-radius: 12px; box-shadow: var(--shadow-sm);
-            padding: 1.5rem; margin-bottom: 1.5rem;
-            transition: box-shadow .2s;
-        }
-        .erp-card:hover { box-shadow: var(--shadow-md); }
-        .erp-card-header {
-            background: var(--clr-navy); color: #FFF;
-            border-radius: 10px 10px 0 0;
-            padding: .85rem 1.25rem;
-            border-left: 5px solid var(--clr-gold);
-            font-family: 'Playfair Display',serif;
-            font-size: 1.05rem; letter-spacing: .03em;
-            margin: -1.5rem -1.5rem 1.5rem;
-        }
-        /* TABLAS */
-        .erp-table {
-            width: 100%; border-collapse: separate; border-spacing: 0;
-            border-radius: 10px; overflow: hidden; box-shadow: var(--shadow-sm);
-        }
-        .erp-table thead th {
-            background: var(--clr-navy); color: #FFF;
-            font-weight: 600; font-size: .82rem;
-            text-transform: uppercase; letter-spacing: .06em;
-            padding: .75rem 1rem; border-bottom: 3px solid var(--clr-gold);
-        }
-        .erp-table tbody td {
-            background: var(--clr-surface); padding: .65rem 1rem;
-            border-bottom: 1px solid var(--clr-border); font-size: .9rem;
-        }
-        .erp-table tbody tr:nth-child(even) td { background: var(--clr-ice); }
-        .erp-table tbody tr:hover td { background: rgba(74,144,217,.08); }
-        .erp-table tfoot td {
-            background: var(--clr-cream); color: var(--clr-gold);
-            font-weight: 700; border-top: 2px solid var(--clr-gold);
-        }
-        /* BOTONES */
-        .btn-erp-primary {
-            background: var(--clr-navy); color: #FFF;
-            border: 2px solid var(--clr-gold); border-radius: 8px;
-            padding: .45rem 1.2rem; font-weight: 600; font-size: .88rem;
-            cursor: pointer; text-decoration: none; display: inline-block;
-            transition: background .2s, color .2s;
-        }
-        .btn-erp-primary:hover { background: var(--clr-gold); color: var(--clr-navy); }
-        .btn-erp-gold {
-            background: var(--clr-gold); color: var(--clr-navy);
-            border: 2px solid var(--clr-navy); border-radius: 8px;
-            padding: .45rem 1.2rem; font-weight: 700;
-            cursor: pointer; text-decoration: none; display: inline-block;
-            transition: background .2s;
-        }
-        .btn-erp-gold:hover { background: var(--clr-amber); }
-        .btn-erp-danger {
-            background: var(--clr-danger); color: #FFF; border: none;
-            border-radius: 8px; padding: .4rem 1rem;
-            font-weight: 600; font-size: .85rem;
-            cursor: pointer; text-decoration: none; display: inline-block;
-        }
-        .btn-erp-sm { padding: .25rem .7rem; font-size: .8rem; }
-        /* FORMULARIOS */
-        .erp-label {
-            font-size: .83rem; font-weight: 600; color: var(--clr-muted);
-            text-transform: uppercase; letter-spacing: .05em;
-            display: block; margin-bottom: .3rem;
-        }
-        .erp-input {
-            background: var(--clr-surface); border: 1.5px solid var(--clr-border);
-            border-radius: 8px; color: var(--clr-text);
-            padding: .5rem .85rem; width: 100%; font-size: .93rem;
-            transition: border-color .2s, box-shadow .2s;
-        }
-        .erp-input:focus {
-            outline: none; border-color: var(--clr-sky);
-            box-shadow: 0 0 0 3px rgba(74,144,217,.18);
-        }
-        /* BADGES */
-        .badge-erp-active {
-            background: rgba(26,122,74,.12); color: var(--clr-ok);
-            border: 1px solid currentColor;
-            font-size: .75rem; padding: .2rem .6rem;
-            border-radius: 20px; font-weight: 600;
-        }
-        .badge-erp-inactive {
-            background: rgba(192,57,43,.1); color: var(--clr-danger);
-            border: 1px solid currentColor;
-            font-size: .75rem; padding: .2rem .6rem; border-radius: 20px;
-        }
-        .badge-erp-gold {
-            background: var(--clr-cream); color: var(--clr-gold);
-            border: 1px solid var(--clr-gold);
-            font-size: .75rem; padding: .2rem .7rem;
-            border-radius: 20px; font-weight: 700;
-        }
-        /* ALERTAS */
-        .erp-alert-danger {
-            background: rgba(192,57,43,.08); border: 1px solid rgba(192,57,43,.3);
-            border-left: 5px solid var(--clr-danger); border-radius: 8px;
-            padding: 1rem 1.25rem;
-        }
-        .erp-alert-info {
-            background: var(--clr-ice); border: 1px solid var(--clr-border);
-            border-left: 5px solid var(--clr-sky); border-radius: 8px;
-            padding: 1rem 1.25rem;
-        }
-        .erp-alert-success {
-            background: rgba(26,122,74,.08); border: 1px solid rgba(26,122,74,.3);
-            border-left: 5px solid var(--clr-ok); border-radius: 8px;
-            padding: 1rem 1.25rem;
-        }
-        /* TÍTULO DE PÁGINA */
-        .erp-page-title {
-            display: flex; align-items: center; gap: 1rem;
-            margin-bottom: 1.5rem; padding-bottom: .75rem;
-            border-bottom: 2px solid var(--clr-border);
-        }
-        .erp-page-title h2 {
-            font-family: 'Playfair Display',serif;
-            font-size: 1.6rem; color: var(--clr-navy); margin: 0;
-        }
-        [data-theme="dark"] .erp-page-title h2 { color: var(--clr-sky); }
-        /* CÓDIGO */
-        code, .mono {
-            font-family: 'JetBrains Mono',Consolas,monospace;
-            font-size: .85em; color: var(--clr-royal);
-            background: var(--clr-ice); padding: .1em .4em; border-radius: 4px;
-        }
-        [data-theme="dark"] code,
-        [data-theme="dark"] .mono {
-            color: var(--clr-sky); background: rgba(74,144,217,.12);
-        }
-        /* FOOTER */
-        .erp-footer {
-            background: var(--clr-navy); color: rgba(255,255,255,.6);
-            text-align: center; font-size: .78rem;
-            padding: .75rem; border-top: 2px solid var(--clr-gold);
-        }
-    </style>
-    {% block extra_css %}{% endblock %}
-</head>
+    Excluye: id, creado (auto-generados).
+    Incluye: activo (admin puede activar/desactivar).
+    """
 
-<body>
-
-<!-- NAVBAR -->
-<nav class="erp-navbar">
-    <a class="erp-brand" href="/">📦 ERP Django <span>· UTEC Celaya</span></a>
-    <div class="erp-nav-links">
-        <a href="{% url 'productos:inicio' %}"
-           class="erp-nav-link {% block nav_productos %}{% endblock %}">Productos</a>
-        <a href="{% url 'clientes:inicio' %}"
-           class="erp-nav-link {% block nav_clientes %}{% endblock %}">Clientes</a>
-        <a href="{% url 'proveedores:inicio' %}"
-           class="erp-nav-link {% block nav_proveedores %}{% endblock %}">Proveedores</a>
-        <a href="{% url 'ventas:inicio' %}"
-           class="erp-nav-link {% block nav_ventas %}{% endblock %}">Ventas</a>
-        <a href="{% url 'reportes:inicio' %}"
-           class="erp-nav-link {% block nav_reportes %}{% endblock %}">Reportes</a>
-        <a href="/admin/" class="erp-nav-link">Admin</a>
-        {% if user.is_authenticated %}
-            <a href="/accounts/logout/" class="erp-nav-link">
-                Salir ({{ user.username }})
-            </a>
-        {% else %}
-            <a href="/accounts/login/" class="erp-nav-link">Entrar</a>
-        {% endif %}
-        <button class="theme-toggle" id="themeBtn" title="Modo claro/oscuro">🌙</button>
-    </div>
-</nav>
-
-<!-- MENSAJES FLASH -->
-{% if messages %}
-<div class="container mt-3">
-    {% for m in messages %}
-    <div class="erp-alert-{% if m.tags == 'error' %}danger{% elif m.tags == 'success' %}success{% else %}info{% endif %} d-flex justify-content-between align-items-center mb-2"
-         role="alert">
-        <span>{{ m }}</span>
-        <button onclick="this.parentElement.style.display='none'"
-                style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:inherit;">×</button>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
-
-<!-- CONTENIDO PRINCIPAL -->
-<main class="erp-main">
-    <div class="container">
-        {% block content %}{% endblock %}
-    </div>
-</main>
-
-<!-- FOOTER -->
-<footer class="erp-footer">
-    ERP Django · Django 4.2 LTS · Fable 5 AzulERP · UTEC Celaya · Espiral 1
-</footer>
-
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
-</script>
-
-<!-- Toggle modo noche -->
-<script>
-(function () {
-    var btn  = document.getElementById('themeBtn');
-    var html = document.documentElement;
-    var icons = { light: '🌙', dark: '☀️' };
-    var saved = localStorage.getItem('erpTheme') || 'light';
-    html.setAttribute('data-theme', saved);
-    if (btn) btn.textContent = icons[saved];
-    if (btn) {
-        btn.addEventListener('click', function () {
-            var current = html.getAttribute('data-theme');
-            var next    = current === 'light' ? 'dark' : 'light';
-            html.setAttribute('data-theme', next);
-            btn.textContent = icons[next];
-            localStorage.setItem('erpTheme', next);
-        });
-    }
-})();
-</script>
-{% block extra_js %}{% endblock %}
-</body>
-</html>
-```
-
-### 1.3 Verificación de Parte 1
-
-```cmd
-python manage.py check
-```
-
-```
-[ ] templates/base.html creado (verificar con: dir templates\base.html)
-[ ] Contiene los 2 bloques de tokens CSS (modo día y noche)
-[ ] Contiene {% block content %} y {% block title %}
-[ ] manage.py check → 0 issues
+    class Meta:
+        model  = Producto
+        fields = ['nombre', 'precio', 'stock', 'categoria',
+                  'proveedor', 'activo']
+        widgets = {
+            'nombre':    forms.TextInput(
+                attrs={'class': 'erp-input',
+                       'placeholder': 'Nombre del producto'}
+            ),
+            'precio':    forms.NumberInput(
+                attrs={'class': 'erp-input', 'step': '0.01', 'min': '0'}
+            ),
+            'stock':     forms.NumberInput(
+                attrs={'class': 'erp-input', 'min': '0'}
+            ),
+            'categoria': forms.Select(
+                attrs={'class': 'erp-input'}
+            ),
+            'proveedor': forms.Select(
+                attrs={'class': 'erp-input'}
+            ),
+        }
+        labels = {
+            'nombre':    'Nombre',
+            'precio':    'Precio ($)',
+            'stock':     'Stock disponible',
+            'categoria': 'Categoría',
+            'proveedor': 'Proveedor',
+            'activo':    'Activo',
+        }
 ```
 
 ---
 
-## PARTE 2 — Plantillas por App (20 min)
+### 1.3 `clientes/forms.py`
 
-### 2.1 Crear carpetas de templates
+```python
+# clientes/forms.py
+"""Formularios de la app clientes — W08."""
+from django import forms
 
-```cmd
-for %a in (clientes proveedores productos ventas reportes) do (
-    mkdir %a\templates\%a
+from .models import Cliente
+
+
+class ClienteForm(forms.ModelForm):
+    """Formulario para crear y editar clientes."""
+
+    class Meta:
+        model  = Cliente
+        fields = ['nombre', 'correo', 'telefono', 'activo']
+        widgets = {
+            'nombre':   forms.TextInput(
+                attrs={'class': 'erp-input',
+                       'placeholder': 'Nombre completo o razón social'}
+            ),
+            'correo':   forms.EmailInput(
+                attrs={'class': 'erp-input',
+                       'placeholder': 'correo@ejemplo.com'}
+            ),
+            'telefono': forms.TextInput(
+                attrs={'class': 'erp-input',
+                       'placeholder': '461 123 4567'}
+            ),
+        }
+```
+
+---
+
+### 1.4 `proveedores/forms.py`
+
+```python
+# proveedores/forms.py
+"""Formularios de la app proveedores — W08."""
+from django import forms
+
+from .models import Proveedor
+
+
+class ProveedorForm(forms.ModelForm):
+    """Formulario para crear y editar proveedores."""
+
+    class Meta:
+        model  = Proveedor
+        fields = ['nombre', 'contacto', 'correo', 'telefono', 'activo']
+        widgets = {
+            'nombre':   forms.TextInput(
+                attrs={'class': 'erp-input',
+                       'placeholder': 'Nombre comercial'}
+            ),
+            'contacto': forms.TextInput(
+                attrs={'class': 'erp-input',
+                       'placeholder': 'Nombre de la persona de contacto'}
+            ),
+            'correo':   forms.EmailInput(
+                attrs={'class': 'erp-input'}
+            ),
+            'telefono': forms.TextInput(
+                attrs={'class': 'erp-input'}
+            ),
+        }
+```
+
+---
+
+### 1.5 `ventas/forms.py`
+
+```python
+# ventas/forms.py
+"""Formularios de la app ventas — W08."""
+from django import forms
+
+from .models import DetalleVenta, Venta
+
+
+class VentaForm(forms.ModelForm):
+    """Formulario para el encabezado de una venta."""
+
+    class Meta:
+        model   = Venta
+        fields  = ['cliente']
+        widgets = {
+            'cliente': forms.Select(attrs={'class': 'erp-input'}),
+        }
+
+
+class DetalleVentaForm(forms.ModelForm):
+    """Formulario para una línea de detalle.
+
+    precio_unitario se pre-llena en la vista desde el producto
+    seleccionado, pero el usuario puede ajustarlo.
+    """
+
+    class Meta:
+        model  = DetalleVenta
+        fields = ['producto', 'cantidad', 'precio_unitario']
+        widgets = {
+            'producto':        forms.Select(
+                attrs={'class': 'erp-input'}
+            ),
+            'cantidad':        forms.NumberInput(
+                attrs={'class': 'erp-input', 'min': '1', 'value': '1'}
+            ),
+            'precio_unitario': forms.NumberInput(
+                attrs={'class': 'erp-input',
+                       'step': '0.01', 'min': '0'}
+            ),
+        }
+        labels = {
+            'precio_unitario': 'Precio unitario ($)',
+        }
+```
+
+---
+
+## PARTE 2 — Vistas de escritura: Producto (20 min)
+
+### 2.1 Regla crítica: `LoginRequiredMixin` va PRIMERO
+
+```python
+# INCORRECTO — MRO (Method Resolution Order) erróneo
+class ProductoCreateView(CreateView, LoginRequiredMixin):
+    ...   # LoginRequiredMixin no tiene efecto
+
+# CORRECTO — LoginRequiredMixin primero en la herencia
+class ProductoCreateView(LoginRequiredMixin, CreateView):
+    ...   # verifica autenticación antes de procesar la vista
+```
+
+Python resuelve métodos de izquierda a derecha en la herencia múltiple.
+Si `LoginRequiredMixin` va después, su `dispatch()` nunca se ejecuta.
+
+---
+
+### 2.2 Agregar vistas de escritura a `productos/views.py`
+
+Agregar al final del archivo (después de `ProductoDetailView`):
+
+```python
+# productos/views.py — agregar los imports al inicio del archivo:
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
+from django.views.generic import (
+    CreateView, DeleteView, DetailView, ListView, UpdateView
 )
+
+from .forms import ProductoForm
+
+
+class ProductoCreateView(LoginRequiredMixin, CreateView):
+    """Formulario para crear un nuevo producto.
+
+    LoginRequiredMixin PRIMERO en la herencia (obligatorio).
+    Redirige a /accounts/login/ si el usuario no está autenticado.
+    """
+
+    model         = Producto
+    form_class    = ProductoForm
+    template_name = 'productos/crear.html'
+    success_url   = reverse_lazy('productos:lista')  # reverse_lazy (no reverse)
+
+    def form_valid(self, form):
+        """Agrega mensaje flash de éxito al guardar."""
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            f'Producto "{self.object.nombre}" creado exitosamente.'
+        )
+        return response
+
+
+class ProductoUpdateView(LoginRequiredMixin, UpdateView):
+    """Formulario para editar un producto existente."""
+
+    model         = Producto
+    form_class    = ProductoForm
+    template_name = 'productos/editar.html'
+    pk_url_kwarg  = 'producto_id'
+    success_url   = reverse_lazy('productos:lista')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            f'Producto "{self.object.nombre}" actualizado.'
+        )
+        return response
+
+
+class ProductoDeleteView(LoginRequiredMixin, DeleteView):
+    """Confirmación y borrado de un producto.
+
+    SOLO acepta POST. El template debe incluir
+    un formulario con {% csrf_token %} para evitar CSRF.
+    """
+
+    model         = Producto
+    template_name = 'productos/eliminar.html'
+    pk_url_kwarg  = 'producto_id'
+    success_url   = reverse_lazy('productos:lista')
+
+    def form_valid(self, form):
+        nombre   = self.object.nombre
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            f'Producto "{nombre}" eliminado.'
+        )
+        return response
 ```
 
 ---
 
-### 2.2 Plantilla de bienvenida actualizada
+## PARTE 3 — Vistas de escritura: Cliente + Proveedor (15 min)
 
-Reemplazar `templates/bienvenida.html` con versión que hereda de `base.html`:
+### 3.1 Agregar a `clientes/views.py`
 
-```html
-{% extends "base.html" %}
-{% block title %}Inicio{% endblock %}
+Agregar imports al inicio y las 3 vistas al final:
 
-{% block content %}
-<div class="text-center py-4">
-    <h1 style="font-family:'Playfair Display',serif;
-               color:var(--clr-navy);font-size:2.2rem;">
-        📦 ERP Django
-    </h1>
-    <p style="color:var(--clr-muted);font-size:1.05rem;">
-        Sistema de gestión empresarial · UTEC Celaya · Espiral 1 W02
-    </p>
-    <div class="d-flex justify-content-center gap-2 mt-2 flex-wrap">
-        <span class="badge-erp-gold">Django 4.2 LTS</span>
-        <span class="badge-erp-gold">Python 3.11</span>
-        <span class="badge-erp-gold">Fable 5 AzulERP</span>
-    </div>
-</div>
+```python
+# clientes/views.py — agregar imports al inicio:
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
+from django.views.generic import (
+    CreateView, DeleteView, DetailView, ListView, UpdateView
+)
+from .forms import ClienteForm
 
-<div class="row g-3 mt-2">
-    {% for m in modulos %}
-    <div class="col-md-4">
-        <div class="erp-card text-center"
-             style="cursor:pointer;" onclick="window.location='{{ m.url }}'">
-            <div style="font-size:2rem;margin-bottom:.4rem;">{{ m.icono }}</div>
-            <strong style="color:var(--clr-navy);">{{ m.nombre }}</strong>
-            <p style="color:var(--clr-muted);font-size:.85rem;margin:.3rem 0 0;">
-                {{ m.descripcion }}
-            </p>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-{% endblock %}
+
+class ClienteCreateView(LoginRequiredMixin, CreateView):
+    """Formulario para crear un nuevo cliente."""
+
+    model         = Cliente
+    form_class    = ClienteForm
+    template_name = 'clientes/crear.html'
+    success_url   = reverse_lazy('clientes:lista')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            f'Cliente "{self.object.nombre}" creado exitosamente.'
+        )
+        return response
+
+
+class ClienteUpdateView(LoginRequiredMixin, UpdateView):
+    """Formulario para editar un cliente."""
+
+    model         = Cliente
+    form_class    = ClienteForm
+    template_name = 'clientes/editar.html'
+    pk_url_kwarg  = 'cliente_id'
+    success_url   = reverse_lazy('clientes:lista')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            f'Cliente "{self.object.nombre}" actualizado.'
+        )
+        return response
+
+
+class ClienteDeleteView(LoginRequiredMixin, DeleteView):
+    """Confirmación y borrado de un cliente."""
+
+    model         = Cliente
+    template_name = 'clientes/eliminar.html'
+    pk_url_kwarg  = 'cliente_id'
+    success_url   = reverse_lazy('clientes:lista')
+
+    def form_valid(self, form):
+        nombre   = self.object.nombre
+        response = super().form_valid(form)
+        messages.success(self.request, f'Cliente "{nombre}" eliminado.')
+        return response
+```
+
+### 3.2 Agregar a `proveedores/views.py`
+
+```python
+# proveedores/views.py — agregar imports al inicio:
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
+from django.views.generic import (
+    CreateView, DeleteView, DetailView, ListView, UpdateView
+)
+from .forms import ProveedorForm
+
+
+class ProveedorCreateView(LoginRequiredMixin, CreateView):
+    """Formulario para crear un proveedor."""
+
+    model         = Proveedor
+    form_class    = ProveedorForm
+    template_name = 'proveedores/crear.html'
+    success_url   = reverse_lazy('proveedores:lista')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            f'Proveedor "{self.object.nombre}" creado exitosamente.'
+        )
+        return response
+
+
+class ProveedorUpdateView(LoginRequiredMixin, UpdateView):
+    """Formulario para editar un proveedor."""
+
+    model         = Proveedor
+    form_class    = ProveedorForm
+    template_name = 'proveedores/editar.html'
+    pk_url_kwarg  = 'proveedor_id'
+    success_url   = reverse_lazy('proveedores:lista')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            f'Proveedor "{self.object.nombre}" actualizado.'
+        )
+        return response
+
+
+class ProveedorDeleteView(LoginRequiredMixin, DeleteView):
+    """Confirmación y borrado de un proveedor."""
+
+    model         = Proveedor
+    template_name = 'proveedores/eliminar.html'
+    pk_url_kwarg  = 'proveedor_id'
+    success_url   = reverse_lazy('proveedores:lista')
+
+    def form_valid(self, form):
+        nombre   = self.object.nombre
+        response = super().form_valid(form)
+        messages.success(self.request, f'Proveedor "{nombre}" eliminado.')
+        return response
 ```
 
 ---
 
-### 2.3 `productos/templates/productos/index.html`
+## PARTE 4 — Vistas de escritura: Venta (15 min)
+
+### 4.1 ¿Por qué `crear_venta` es una vista función y no CBV?
+
+`CreateView` maneja **un solo formulario**. La creación de una venta
+necesita **dos formularios simultáneos**: `VentaForm` (encabezado)
+y `DetalleVentaForm` (línea de producto). Una vista función es más
+clara para este caso que forzar un formset en un CBV.
+
+### 4.2 Agregar a `ventas/views.py`
+
+```python
+# ventas/views.py — agregar imports al inicio:
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import redirect, render
+from django.urls import reverse_lazy
+from django.views.generic import DeleteView, DetailView, ListView
+
+from .forms  import DetalleVentaForm, VentaForm
+from .models import DetalleVenta, Venta
+
+
+def crear_venta(request):
+    """Crea un encabezado de venta con una línea de detalle.
+
+    GET  → muestra los dos formularios vacíos.
+    POST → valida ambos, guarda si correctos, muestra errores si no.
+
+    Protección: redirige a login si no autenticado.
+    Nota: para múltiples líneas usar formsets (implementar en Espiral 5).
+    """
+    if not request.user.is_authenticated:
+        return redirect(
+            f"{settings.LOGIN_URL}?next={request.path}"
+        )
+
+    venta_form   = VentaForm(request.POST or None)
+    detalle_form = DetalleVentaForm(request.POST or None)
+
+    if request.method == 'POST':
+        if venta_form.is_valid() and detalle_form.is_valid():
+            venta          = venta_form.save()
+            detalle        = detalle_form.save(commit=False)
+            detalle.venta  = venta
+            # precio_unitario se auto-captura en save() si es None
+            detalle.save()
+            messages.success(
+                request,
+                f'Venta #{venta.pk} registrada. '
+                f'Total: ${venta.total:.2f}'
+            )
+            return redirect('ventas:detalle', venta_id=venta.pk)
+
+    return render(request, 'ventas/crear.html', {
+        'venta_form':   venta_form,
+        'detalle_form': detalle_form,
+    })
+
+
+class VentaDeleteView(LoginRequiredMixin, DeleteView):
+    """Confirmación y borrado de una venta (y sus detalles en cascada)."""
+
+    model         = Venta
+    template_name = 'ventas/eliminar.html'
+    pk_url_kwarg  = 'venta_id'
+    success_url   = reverse_lazy('ventas:lista')
+
+    def form_valid(self, form):
+        pk       = self.object.pk
+        response = super().form_valid(form)
+        messages.success(self.request, f'Venta #{pk} eliminada.')
+        return response
+```
+
+---
+
+## PARTE 5 — 12 Templates de escritura Fable 5 AzulERP (35 min)
+
+> **Patrón reutilizable para todos los formularios.**
+> Los templates de creación y edición son casi idénticos.
+> El template de eliminación solo tiene un botón de confirmación POST.
+
+### 5.1 `productos/templates/productos/crear.html`
 
 ```html
 {% extends "base.html" %}
-{% block title %}Productos{% endblock %}
+{% block title %}Nuevo producto{% endblock %}
 {% block nav_productos %}active{% endblock %}
 
 {% block content %}
 <div class="erp-page-title">
-    <h2>📦 Productos</h2>
-    <span class="badge-erp-gold ms-auto">Espiral 2 · W05</span>
+    <h2>📦 Nuevo producto</h2>
 </div>
-<div class="erp-card">
-    <div class="erp-card-header">Módulo de Inventario y Productos</div>
-    <p>Gestión de catálogo de productos, precios y stock disponible.</p>
-    <div class="erp-alert-info">
-        <strong>Estado W02:</strong> Módulo en construcción.
-        CRUD completo disponible en
-        <span class="badge-erp-gold">Espiral 2 · W05–W06</span>
-    </div>
-    <br>
-    <a href="/" class="btn-erp-primary">← Inicio</a>
+
+<div class="erp-card" style="max-width:640px;">
+    <div class="erp-card-header">Datos del producto</div>
+    <form method="post" style="margin-top:.5rem;">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-4">
+            <label class="erp-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                {% for e in field.errors %}
+                    <p style="color:var(--clr-danger);font-size:.82rem;
+                              margin:.25rem 0 0;">{{ e }}</p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn-erp-gold">Guardar</button>
+            <a href="{% url 'productos:lista' %}"
+               class="btn-erp-primary">Cancelar</a>
+        </div>
+    </form>
 </div>
 {% endblock %}
 ```
 
----
-
-### 2.4 `clientes/templates/clientes/index.html`
+### 5.2 `productos/templates/productos/editar.html`
 
 ```html
 {% extends "base.html" %}
-{% block title %}Clientes{% endblock %}
+{% block title %}Editar — {{ producto.nombre }}{% endblock %}
+{% block nav_productos %}active{% endblock %}
+
+{% block content %}
+<div class="erp-page-title">
+    <h2>✏️ Editar: {{ producto.nombre }}</h2>
+</div>
+
+<div class="erp-card" style="max-width:640px;">
+    <div class="erp-card-header">Modificar datos</div>
+    <form method="post" style="margin-top:.5rem;">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-4">
+            <label class="erp-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                {% for e in field.errors %}
+                    <p style="color:var(--clr-danger);font-size:.82rem;
+                              margin:.25rem 0 0;">{{ e }}</p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn-erp-gold">Actualizar</button>
+            <a href="{% url 'productos:detalle' producto.pk %}"
+               class="btn-erp-primary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+```
+
+### 5.3 `productos/templates/productos/eliminar.html`
+
+```html
+{% extends "base.html" %}
+{% block title %}Eliminar — {{ producto.nombre }}{% endblock %}
+{% block nav_productos %}active{% endblock %}
+
+{% block content %}
+<div class="erp-page-title">
+    <h2>🗑️ Eliminar producto</h2>
+</div>
+
+<div class="erp-card" style="max-width:540px;">
+    <div class="erp-alert-danger" style="margin-bottom:1.5rem;">
+        <strong>¿Eliminar "{{ producto.nombre }}"?</strong>
+        <p style="margin:.5rem 0 0;">Esta acción no se puede deshacer.</p>
+        <p style="margin:.25rem 0 0;font-size:.88rem;
+                  color:var(--clr-muted);">
+            Nota: si el producto tiene ventas asociadas,
+            no podrá eliminarse (restricción PROTECT).
+        </p>
+    </div>
+    <!-- SIEMPRE formulario POST para borrar — nunca GET -->
+    <form method="post">
+        {% csrf_token %}
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn-erp-danger">
+                Sí, eliminar
+            </button>
+            <a href="{% url 'productos:detalle' producto.pk %}"
+               class="btn-erp-primary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+```
+
+### 5.4 Templates de clientes (crear + editar + eliminar)
+
+**`clientes/templates/clientes/crear.html`**
+
+```html
+{% extends "base.html" %}
+{% block title %}Nuevo cliente{% endblock %}
 {% block nav_clientes %}active{% endblock %}
 
 {% block content %}
-<div class="erp-page-title">
-    <h2>👥 Clientes</h2>
-    <span class="badge-erp-gold ms-auto">Espiral 2 · W04</span>
-</div>
-<div class="erp-card">
-    <div class="erp-card-header">Módulo de Clientes</div>
-    <p>Gestión de cartera de clientes y datos de contacto.</p>
-    <div class="erp-alert-info">
-        <strong>Estado W02:</strong> Módulo en construcción.
-        CRUD completo en <span class="badge-erp-gold">Espiral 2 · W04–W06</span>
-    </div>
-    <br>
-    <a href="/" class="btn-erp-primary">← Inicio</a>
+<div class="erp-page-title"><h2>👥 Nuevo cliente</h2></div>
+<div class="erp-card" style="max-width:580px;">
+    <div class="erp-card-header">Datos del cliente</div>
+    <form method="post" style="margin-top:.5rem;">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-4">
+            <label class="erp-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                {% for e in field.errors %}
+                    <p style="color:var(--clr-danger);font-size:.82rem;
+                              margin:.25rem 0 0;">{{ e }}</p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn-erp-gold">Guardar</button>
+            <a href="{% url 'clientes:lista' %}" class="btn-erp-primary">Cancelar</a>
+        </div>
+    </form>
 </div>
 {% endblock %}
 ```
 
----
-
-### 2.5 `proveedores/templates/proveedores/index.html`
+**`clientes/templates/clientes/editar.html`**
 
 ```html
 {% extends "base.html" %}
-{% block title %}Proveedores{% endblock %}
+{% block title %}Editar — {{ cliente.nombre }}{% endblock %}
+{% block nav_clientes %}active{% endblock %}
+
+{% block content %}
+<div class="erp-page-title"><h2>✏️ Editar: {{ cliente.nombre }}</h2></div>
+<div class="erp-card" style="max-width:580px;">
+    <div class="erp-card-header">Modificar datos</div>
+    <form method="post" style="margin-top:.5rem;">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-4">
+            <label class="erp-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                {% for e in field.errors %}
+                    <p style="color:var(--clr-danger);font-size:.82rem;
+                              margin:.25rem 0 0;">{{ e }}</p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn-erp-gold">Actualizar</button>
+            <a href="{% url 'clientes:detalle' cliente.pk %}"
+               class="btn-erp-primary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+```
+
+**`clientes/templates/clientes/eliminar.html`**
+
+```html
+{% extends "base.html" %}
+{% block title %}Eliminar — {{ cliente.nombre }}{% endblock %}
+{% block nav_clientes %}active{% endblock %}
+
+{% block content %}
+<div class="erp-page-title"><h2>🗑️ Eliminar cliente</h2></div>
+<div class="erp-card" style="max-width:540px;">
+    <div class="erp-alert-danger" style="margin-bottom:1.5rem;">
+        <strong>¿Eliminar a "{{ cliente.nombre }}"?</strong>
+        <p style="margin:.5rem 0 0;">
+            Si el cliente tiene ventas, no podrá eliminarse (PROTECT).
+            Considerar usar "Activo = False" para desactivarlo.
+        </p>
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn-erp-danger">Sí, eliminar</button>
+            <a href="{% url 'clientes:detalle' cliente.pk %}"
+               class="btn-erp-primary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+```
+
+### 5.5 Templates de proveedores (crear + editar + eliminar)
+
+**`proveedores/templates/proveedores/crear.html`**
+
+```html
+{% extends "base.html" %}
+{% block title %}Nuevo proveedor{% endblock %}
 {% block nav_proveedores %}active{% endblock %}
 
 {% block content %}
-<div class="erp-page-title">
-    <h2>🏭 Proveedores</h2>
-    <span class="badge-erp-gold ms-auto">Espiral 2 · W04</span>
-</div>
-<div class="erp-card">
-    <div class="erp-card-header">Módulo de Proveedores</div>
-    <p>Red de proveedores y relación con productos del catálogo.</p>
-    <div class="erp-alert-info">
-        <strong>Estado W02:</strong> Módulo en construcción.
-        Implementación en <span class="badge-erp-gold">Espiral 2 · W04–W06</span>
-    </div>
-    <br>
-    <a href="/" class="btn-erp-primary">← Inicio</a>
+<div class="erp-page-title"><h2>🏭 Nuevo proveedor</h2></div>
+<div class="erp-card" style="max-width:580px;">
+    <div class="erp-card-header">Datos del proveedor</div>
+    <form method="post" style="margin-top:.5rem;">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-4">
+            <label class="erp-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                {% for e in field.errors %}
+                    <p style="color:var(--clr-danger);font-size:.82rem;
+                              margin:.25rem 0 0;">{{ e }}</p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn-erp-gold">Guardar</button>
+            <a href="{% url 'proveedores:lista' %}"
+               class="btn-erp-primary">Cancelar</a>
+        </div>
+    </form>
 </div>
 {% endblock %}
 ```
 
----
-
-### 2.6 `ventas/templates/ventas/index.html`
+**`proveedores/templates/proveedores/editar.html`**
 
 ```html
 {% extends "base.html" %}
-{% block title %}Ventas{% endblock %}
+{% block title %}Editar — {{ proveedor.nombre }}{% endblock %}
+{% block nav_proveedores %}active{% endblock %}
+
+{% block content %}
+<div class="erp-page-title"><h2>✏️ Editar: {{ proveedor.nombre }}</h2></div>
+<div class="erp-card" style="max-width:580px;">
+    <div class="erp-card-header">Modificar datos</div>
+    <form method="post" style="margin-top:.5rem;">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-4">
+            <label class="erp-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                {% for e in field.errors %}
+                    <p style="color:var(--clr-danger);font-size:.82rem;
+                              margin:.25rem 0 0;">{{ e }}</p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn-erp-gold">Actualizar</button>
+            <a href="{% url 'proveedores:detalle' proveedor.pk %}"
+               class="btn-erp-primary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+```
+
+**`proveedores/templates/proveedores/eliminar.html`**
+
+```html
+{% extends "base.html" %}
+{% block title %}Eliminar — {{ proveedor.nombre }}{% endblock %}
+{% block nav_proveedores %}active{% endblock %}
+
+{% block content %}
+<div class="erp-page-title"><h2>🗑️ Eliminar proveedor</h2></div>
+<div class="erp-card" style="max-width:540px;">
+    <div class="erp-alert-danger" style="margin-bottom:1.5rem;">
+        <strong>¿Eliminar a "{{ proveedor.nombre }}"?</strong>
+        <p style="margin:.5rem 0 0;">
+            Los productos asociados quedarán sin proveedor (SET_NULL).
+        </p>
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn-erp-danger">Sí, eliminar</button>
+            <a href="{% url 'proveedores:detalle' proveedor.pk %}"
+               class="btn-erp-primary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+```
+
+### 5.6 Templates de ventas (crear + eliminar)
+
+**`ventas/templates/ventas/crear.html`**
+
+```html
+{% extends "base.html" %}
+{% block title %}Nueva venta{% endblock %}
 {% block nav_ventas %}active{% endblock %}
 
 {% block content %}
-<div class="erp-page-title">
-    <h2>💰 Ventas</h2>
-    <span class="badge-erp-gold ms-auto">Espiral 3 · W07</span>
-</div>
-<div class="erp-card">
-    <div class="erp-card-header">Módulo de Ventas y Pedidos</div>
-    <p>Ciclo de ventas, pedidos, facturación y seguimiento.</p>
-    <div class="erp-alert-info">
-        <strong>Estado W02:</strong> Módulo en construcción.
-        CRUD + API en <span class="badge-erp-gold">Espiral 3 · W07–W09</span>
+<div class="erp-page-title"><h2>💰 Nueva venta</h2></div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <!-- Encabezado: cliente -->
+    <div class="erp-card" style="max-width:640px;margin-bottom:1rem;">
+        <div class="erp-card-header">Cliente</div>
+        {% for field in venta_form %}
+        <div class="mb-4" style="margin-top:.5rem;">
+            <label class="erp-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                {% for e in field.errors %}
+                    <p style="color:var(--clr-danger);font-size:.82rem;
+                              margin:.25rem 0 0;">{{ e }}</p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
     </div>
-    <br>
-    <a href="/" class="btn-erp-primary">← Inicio</a>
-</div>
+
+    <!-- Línea de detalle: producto + cantidad + precio -->
+    <div class="erp-card" style="max-width:640px;margin-bottom:1rem;">
+        <div class="erp-card-header" style="background:var(--clr-royal);">
+            Línea de producto
+        </div>
+        {% for field in detalle_form %}
+        <div class="mb-4" style="margin-top:.5rem;">
+            <label class="erp-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                {% for e in field.errors %}
+                    <p style="color:var(--clr-danger);font-size:.82rem;
+                              margin:.25rem 0 0;">{{ e }}</p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn-erp-gold">Registrar venta</button>
+        <a href="{% url 'ventas:lista' %}" class="btn-erp-primary">Cancelar</a>
+    </div>
+</form>
 {% endblock %}
 ```
 
----
-
-### 2.7 `reportes/templates/reportes/index.html`
+**`ventas/templates/ventas/eliminar.html`**
 
 ```html
 {% extends "base.html" %}
-{% block title %}Reportes{% endblock %}
-{% block nav_reportes %}active{% endblock %}
+{% block title %}Eliminar venta #{{ venta.pk }}{% endblock %}
+{% block nav_ventas %}active{% endblock %}
 
 {% block content %}
-<div class="erp-page-title">
-    <h2>📊 Reportes y Dashboard</h2>
-    <span class="badge-erp-gold ms-auto">Espiral 7 · W19</span>
-</div>
-<div class="erp-card">
-    <div class="erp-card-header">Módulo de Analítica</div>
-    <p>KPIs, gráficas de ventas y exportación de datos.</p>
-    <div class="erp-alert-info">
-        <strong>Estado W02:</strong> Módulo en construcción.
-        Dashboard en <span class="badge-erp-gold">Espiral 7 · W19–W21</span>
+<div class="erp-page-title"><h2>🗑️ Eliminar venta</h2></div>
+<div class="erp-card" style="max-width:540px;">
+    <div class="erp-alert-danger" style="margin-bottom:1.5rem;">
+        <strong>¿Eliminar la venta #{{ venta.pk }}?</strong>
+        <p style="margin:.5rem 0 0;">
+            Cliente: {{ venta.cliente }} ·
+            Total: ${{ venta.total }}
+        </p>
+        <p style="margin:.25rem 0 0;font-size:.88rem;">
+            También se eliminarán todas las líneas de detalle (CASCADE).
+        </p>
     </div>
-    <br>
-    <a href="/" class="btn-erp-primary">← Inicio</a>
+    <form method="post">
+        {% csrf_token %}
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn-erp-danger">Sí, eliminar</button>
+            <a href="{% url 'ventas:detalle' venta.pk %}"
+               class="btn-erp-primary">Cancelar</a>
+        </div>
+    </form>
 </div>
 {% endblock %}
 ```
 
-### 2.8 Verificación de Parte 2
+### COMMIT PARCIAL
 
 ```cmd
-python manage.py runserver
-```
-
-Abrir en el navegador y verificar cada URL:
-
-```
-[ ] http://127.0.0.1:8000/           → bienvenida.html + navbar AzulERP visible
-[ ] http://127.0.0.1:8000/productos/ → navbar, título "📦 Productos", badge dorado
-[ ] http://127.0.0.1:8000/clientes/  → enlace "Clientes" en navbar resaltado (active)
-[ ] http://127.0.0.1:8000/ventas/    → página visible sin errores
-[ ] Toggle 🌙 → fondo cambia a azul oscuro (#0D1B2A)
-[ ] Recargar en modo oscuro → mantiene el modo (localStorage)
+git add .
+git commit -m "Sprint 2 W08: forms.py + Create/Update/Delete views + 12 templates"
 ```
 
 ---
 
-## PARTE 3 — Refactorizar Vistas: `urls.py` → `views.py` (30 min)
+## PARTE 6 — Actualizar `urls.py` × 4 apps (10 min)
 
-### 3.1 Por qué separar vistas de rutas
-
-```
-ANTES (W01 — provisional):          DESPUÉS (W02 — patrón MVT correcto):
-────────────────────────────        ────────────────────────────────────
-productos/urls.py                   productos/views.py
-  def vista_temp(request):            def index(request):
-    return HttpResponse(...)              return render(request,
-                                              'productos/index.html',
-                                              context)
-                                    productos/urls.py
-                                      path('', views.index, name='inicio')
-```
-
-**Regla MVT:** `urls.py` solo declara rutas. La lógica va en `views.py`.
-
----
-
-### 3.2 Actualizar `core/views.py`
-
-```python
-# core/views.py
-"""Vistas principales del proyecto ERP — W02.
-
-Migración: HttpResponse → render() con templates y contexto.
-"""
-from django.shortcuts import render
-from django.urls import reverse
-
-
-def bienvenida(request):
-    """Página de inicio del ERP con tarjetas de módulos.
-
-    Context:
-        modulos (list): Lista de dicts con icono, nombre, url y descripcion.
-
-    Returns:
-        HttpResponse con template bienvenida.html.
-    """
-    modulos = [
-        {
-            'nombre': 'Productos',
-            'icono': '📦',
-            'url': reverse('productos:inicio'),
-            'descripcion': 'Inventario, precios y stock',
-        },
-        {
-            'nombre': 'Clientes',
-            'icono': '👥',
-            'url': reverse('clientes:inicio'),
-            'descripcion': 'Cartera y gestión de clientes',
-        },
-        {
-            'nombre': 'Proveedores',
-            'icono': '🏭',
-            'url': reverse('proveedores:inicio'),
-            'descripcion': 'Red de proveedores',
-        },
-        {
-            'nombre': 'Ventas',
-            'icono': '💰',
-            'url': reverse('ventas:inicio'),
-            'descripcion': 'Pedidos, facturas y cobros',
-        },
-        {
-            'nombre': 'Reportes',
-            'icono': '📊',
-            'url': reverse('reportes:inicio'),
-            'descripcion': 'Dashboard y analítica',
-        },
-        {
-            'nombre': 'Admin',
-            'icono': '⚙️',
-            'url': '/admin/',
-            'descripcion': 'Panel de administración Django',
-        },
-    ]
-    return render(request, 'bienvenida.html', {'modulos': modulos})
-```
-
----
-
-### 3.3 `views.py` para cada app
-
-Crear o reemplazar el contenido de `views.py` en cada app.
-El patrón es idéntico; solo cambian `titulo`, `descripcion` y `espiral`.
-
-**`productos/views.py`**
-
-```python
-# productos/views.py
-"""Vistas de la app productos — W02 (placeholder).
-
-CRUD completo se implementa en Espiral 2 (W05-W06).
-"""
-from django.shortcuts import render
-
-
-def index(request):
-    """Vista de índice de productos.
-
-    Returns:
-        HttpResponse con template productos/index.html.
-    """
-    context = {
-        'titulo': 'Productos',
-        'descripcion': 'Gestión de inventario y catálogo de productos.',
-        'espiral': 'Espiral 2 · W05',
-    }
-    return render(request, 'productos/index.html', context)
-```
-
-**`clientes/views.py`**
-
-```python
-# clientes/views.py
-"""Vistas de la app clientes — W02 (placeholder)."""
-from django.shortcuts import render
-
-
-def index(request):
-    """Vista de índice de clientes."""
-    context = {
-        'titulo': 'Clientes',
-        'descripcion': 'Gestión de cartera de clientes.',
-        'espiral': 'Espiral 2 · W04',
-    }
-    return render(request, 'clientes/index.html', context)
-```
-
-**`proveedores/views.py`**
-
-```python
-# proveedores/views.py
-"""Vistas de la app proveedores — W02 (placeholder)."""
-from django.shortcuts import render
-
-
-def index(request):
-    """Vista de índice de proveedores."""
-    context = {
-        'titulo': 'Proveedores',
-        'descripcion': 'Red de proveedores de mercancía.',
-        'espiral': 'Espiral 2 · W04',
-    }
-    return render(request, 'proveedores/index.html', context)
-```
-
-**`ventas/views.py`**
-
-```python
-# ventas/views.py
-"""Vistas de la app ventas — W02 (placeholder)."""
-from django.shortcuts import render
-
-
-def index(request):
-    """Vista de índice de ventas."""
-    context = {
-        'titulo': 'Ventas',
-        'descripcion': 'Ciclo de ventas, pedidos y facturación.',
-        'espiral': 'Espiral 3 · W07',
-    }
-    return render(request, 'ventas/index.html', context)
-```
-
-**`reportes/views.py`**
-
-```python
-# reportes/views.py
-"""Vistas de la app reportes — W02 (placeholder)."""
-from django.shortcuts import render
-
-
-def index(request):
-    """Vista de índice de reportes."""
-    context = {
-        'titulo': 'Reportes',
-        'descripcion': 'Dashboard, KPIs y exportación de datos.',
-        'espiral': 'Espiral 7 · W19',
-    }
-    return render(request, 'reportes/index.html', context)
-```
-
----
-
-### 3.4 Actualizar `urls.py` de cada app
-
-Eliminar las funciones inline de W01. Cada `urls.py` solo importa y referencia.
-
-**`productos/urls.py`**
+### 6.1 `productos/urls.py` — descomentar rutas de escritura
 
 ```python
 # productos/urls.py
-"""URLs de la app productos — W02."""
+"""URLs de la app productos — W08 (CRUD completo)."""
 from django.urls import path
 from . import views
 
 app_name = 'productos'
 
 urlpatterns = [
-    path('', views.index, name='inicio'),
-    # Espiral 2 W05:
-    # path('lista/',          views.ProductoListView.as_view(),   name='lista'),
-    # path('nuevo/',          views.ProductoCreateView.as_view(), name='crear'),
-    # path('<int:pk>/',       views.ProductoDetailView.as_view(), name='detalle'),
-    # path('<int:pk>/editar/',views.ProductoUpdateView.as_view(), name='editar'),
+    # Lectura (W07)
+    path('',
+         views.ProductoListView.as_view(),
+         name='lista'),
+    path('<int:producto_id>/',
+         views.ProductoDetailView.as_view(),
+         name='detalle'),
+    # Escritura (W08) — descomentadas
+    path('nuevo/',
+         views.ProductoCreateView.as_view(),
+         name='crear'),
+    path('<int:producto_id>/editar/',
+         views.ProductoUpdateView.as_view(),
+         name='editar'),
+    path('<int:producto_id>/eliminar/',
+         views.ProductoDeleteView.as_view(),
+         name='eliminar'),
 ]
 ```
 
-Aplicar el mismo patrón a `clientes/urls.py`, `proveedores/urls.py`,
-`ventas/urls.py` y `reportes/urls.py` — solo cambia el `app_name`.
+### 6.2 `clientes/urls.py`
 
----
+```python
+# clientes/urls.py
+from django.urls import path
+from . import views
 
-### 3.5 Verificar las 6 rutas con templates
+app_name = 'clientes'
+
+urlpatterns = [
+    path('',                          views.ClienteListView.as_view(),   name='lista'),
+    path('<int:cliente_id>/',         views.ClienteDetailView.as_view(), name='detalle'),
+    path('nuevo/',                    views.ClienteCreateView.as_view(), name='crear'),
+    path('<int:cliente_id>/editar/',  views.ClienteUpdateView.as_view(), name='editar'),
+    path('<int:cliente_id>/eliminar/',views.ClienteDeleteView.as_view(), name='eliminar'),
+]
+```
+
+### 6.3 `proveedores/urls.py`
+
+```python
+# proveedores/urls.py
+from django.urls import path
+from . import views
+
+app_name = 'proveedores'
+
+urlpatterns = [
+    path('',                            views.ProveedorListView.as_view(),   name='lista'),
+    path('<int:proveedor_id>/',         views.ProveedorDetailView.as_view(), name='detalle'),
+    path('nuevo/',                      views.ProveedorCreateView.as_view(), name='crear'),
+    path('<int:proveedor_id>/editar/',  views.ProveedorUpdateView.as_view(), name='editar'),
+    path('<int:proveedor_id>/eliminar/',views.ProveedorDeleteView.as_view(), name='eliminar'),
+]
+```
+
+### 6.4 `ventas/urls.py`
+
+```python
+# ventas/urls.py
+from django.urls import path
+from . import views
+
+app_name = 'ventas'
+
+urlpatterns = [
+    path('',                        views.VentaListView.as_view(),  name='lista'),
+    path('<int:venta_id>/',         views.VentaDetailView.as_view(),name='detalle'),
+    path('nueva/',                  views.crear_venta,              name='crear'),
+    path('<int:venta_id>/eliminar/',views.VentaDeleteView.as_view(),name='eliminar'),
+]
+```
+
+### 6.5 Verificar todo el CRUD en el navegador
 
 ```cmd
 python manage.py check
 python manage.py runserver
 ```
 
-| URL | Template renderizado | Navbar activo |
+| URL | Acción | Status esperado |
 |---|---|---|
-| `/` | `bienvenida.html` → 6 tarjetas | — |
-| `/productos/` | `productos/index.html` | "Productos" resaltado |
-| `/clientes/` | `clientes/index.html` | "Clientes" resaltado |
-| `/proveedores/` | `proveedores/index.html` | "Proveedores" resaltado |
-| `/ventas/` | `ventas/index.html` | "Ventas" resaltado |
-| `/reportes/` | `reportes/index.html` | "Reportes" resaltado |
-
-### COMMIT PARCIAL — punto de control seguro
-
-```cmd
-git add .
-git commit -m "Sprint 0 W02: render() + templates Fable5 AzulERP x6 vistas"
-```
+| `GET /productos/nuevo/` sin login | — | 302 → `/accounts/login/` |
+| `GET /productos/nuevo/` con login | Formulario vacío | 200 |
+| `POST /productos/nuevo/` datos válidos | Crear + redirect | 302 → lista |
+| `POST /productos/nuevo/` datos inválidos | Errores en form | 200 |
+| `GET /productos/1/editar/` con login | Form pre-poblado | 200 |
+| `POST /productos/1/eliminar/` con login | Borrar + redirect | 302 → lista |
+| `GET /productos/1/eliminar/` con login | Confirmación | 200 |
 
 ---
 
-## PARTE 4 — Archivos Estáticos y WhiteNoise (15 min)
+## PARTE 7 — Tests W08 (20 min)
 
-### 4.1 Respuesta a la tarea de investigación de W01
-
-> **¿Qué es WhiteNoise?**
-> Middleware que permite a Django servir archivos estáticos directamente
-> desde el proceso WSGI (Gunicorn) en producción, sin necesidad de Nginx.
-> Agrega compresión gzip, headers de caché larga duración y sirve archivos
-> desde `STATIC_ROOT` de forma eficiente y segura.
-
----
-
-### 4.2 Crear `static/erp_custom.css`
-
-```cmd
-mkdir static
-```
-
-Crear `static/erp_custom.css`:
-
-```css
-/* static/erp_custom.css
-   Utilidades adicionales de Fable 5 AzulERP.
-   Las variables CSS principales están definidas en base.html.
-*/
-
-/* Tarjetas clicables en la bienvenida */
-.erp-module-card {
-    transition: transform .2s, box-shadow .2s;
-    cursor: pointer;
-}
-.erp-module-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
-}
-
-/* Utilidades de color */
-.text-gold   { color: var(--clr-gold)  !important; }
-.text-navy   { color: var(--clr-navy)  !important; }
-.bg-navy     { background: var(--clr-navy) !important; }
-.border-gold { border-color: var(--clr-gold) !important; }
-
-/* Código monoespaciado */
-.font-mono {
-    font-family: 'JetBrains Mono', Consolas, monospace !important;
-    font-size: .9em;
-}
-```
-
----
-
-### 4.3 Verificar configuración en `settings.py`
-
-Confirmar que estas líneas están presentes y correctas:
+### 7.1 Crear `tests/test_w08_escritura.py`
 
 ```python
-# settings.py — sección de estáticos (verificar, no duplicar)
-STATIC_URL  = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'   # destino de collectstatic
+"""Suite de pruebas W08 — Vistas de escritura: Create, Update, Delete.
 
-# STATICFILES_DIRS ≠ STATIC_ROOT (error frecuente)
-STATICFILES_DIRS = [BASE_DIR / 'static']  # fuentes adicionales
-
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-```
-
-> **Error frecuente:** si `STATICFILES_DIRS` incluye el mismo path que
-> `STATIC_ROOT`, `collectstatic` falla con `ValueError`.
-> Son carpetas **distintas** con propósitos distintos.
-
-Verificar que WhiteNoise está en MIDDLEWARE **después** de SecurityMiddleware:
-
-```python
-MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',    # ← posición 0
-    'whitenoise.middleware.WhiteNoiseMiddleware',       # ← posición 1
-    ...
-]
-```
-
----
-
-### 4.4 Ejecutar `collectstatic`
-
-```cmd
-python manage.py collectstatic --no-input
-```
-
-**Resultado esperado:**
-```
-133 static files copied to 'C:\Temp_Workspace_ERP\staticfiles'.
-```
-
-```
-[ ] staticfiles/ creada con archivos dentro
-[ ] python manage.py check → 0 issues
-[ ] staticfiles/ está en .gitignore (no se sube a GitHub)
-```
-
----
-
-## PARTE 5 — `settings_prod.py` y `requirements.txt` (15 min)
-
-### 5.1 Crear `core/settings_prod.py`
-
-```python
-# core/settings_prod.py
-"""Configuración de producción — Render.com (borrador W02).
-
-Hereda settings.py y sobreescribe valores críticos para producción.
-W03 completará: DATABASE_URL con PostgreSQL, variables de Render.
-
-Uso:
-    DJANGO_SETTINGS_MODULE=core.settings_prod gunicorn core.wsgi
-"""
-from .settings import *   # hereda toda la configuración base
-import os
-
-# Seguridad básica
-DEBUG      = False
-SECRET_KEY = os.environ['SECRET_KEY']   # obligatorio; sin default en prod
-
-ALLOWED_HOSTS = os.environ.get(
-    'ALLOWED_HOSTS', 'localhost'
-).split(',')
-
-# HTTPS y cookies seguras
-SECURE_SSL_REDIRECT            = True
-SECURE_HSTS_SECONDS            = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SESSION_COOKIE_SECURE          = True
-CSRF_COOKIE_SECURE             = True
-X_FRAME_OPTIONS                = 'DENY'
-SECURE_CONTENT_TYPE_NOSNIFF    = True
-
-# Logging mínimo en producción
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {'console': {'class': 'logging.StreamHandler'}},
-    'root': {'handlers': ['console'], 'level': 'WARNING'},
-}
-
-# W03 agregará:
-# import dj_database_url
-# DATABASES = {'default': dj_database_url.config(conn_max_age=600)}
-```
-
----
-
-### 5.2 Actualizar `requirements.txt`
-
-```cmd
-pip install gunicorn "psycopg2-binary==2.9.9" "dj-database-url==2.1.0"
-pip freeze > requirements.txt
-```
-
-Verificar que el archivo contiene al menos:
-
-```
-Django==4.2.x
-djangorestframework==3.14.x
-whitenoise==6.x.x
-gunicorn==21.x.x
-psycopg2-binary==2.9.9
-dj-database-url==2.1.0
-django-environ==0.11.x
-```
-
----
-
-### 5.3 Crear `.env.example`
-
-```bash
-# .env.example — plantilla pública sin valores reales
-# Copiar a .env y completar con datos reales (NUNCA subir .env a Git)
-SECRET_KEY=cambiar-por-clave-aleatoria-segura-min-50-chars
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-DATABASE_URL=postgres://user:password@localhost:5432/erp_db
-REDIS_URL=redis://localhost:6379/0
-SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxx
-STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxx
-STRIPE_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxx
-```
-
----
-
-## PARTE 6 — Tests W02 (20 min)
-
-### 6.1 Crear `tests/test_w02_mvt.py`
-
-```python
-"""Suite de pruebas W02 — Patrón MVT: templates, vistas y estáticos.
+Verifica: redirección sin auth, GET con auth, POST válido,
+          POST inválido, borrado con redirect.
 
 Ejecutar con:
-    python manage.py test tests.test_w02_mvt --verbosity=2
+    python manage.py test tests.test_w08_escritura --verbosity=2
 
 Resultado esperado:
     Ran 12 tests in X.XXXs
     OK
 """
-from django.test import TestCase
+from decimal import Decimal
+
+from django.contrib.auth.models import User
+from django.test import Client, TestCase
 from django.urls import reverse
 
-
-class TemplatesRenderTest(TestCase):
-    """Verifica que las vistas usan render() y los templates correctos."""
-
-    def test_bienvenida_usa_template_correcto(self):
-        """La vista de inicio debe renderizar bienvenida.html."""
-        response = self.client.get('/')
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'bienvenida.html')
-
-    def test_bienvenida_extiende_base(self):
-        """La página de inicio debe extender base.html."""
-        response = self.client.get('/')
-        self.assertTemplateUsed(response, 'base.html')
-
-    def test_productos_usa_template_correcto(self):
-        """La vista de productos debe usar productos/index.html."""
-        response = self.client.get(reverse('productos:inicio'))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'productos/index.html')
-
-    def test_clientes_usa_template_correcto(self):
-        """La vista de clientes debe usar clientes/index.html."""
-        response = self.client.get(reverse('clientes:inicio'))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'clientes/index.html')
-
-    def test_proveedores_usa_template_correcto(self):
-        """La vista de proveedores debe usar proveedores/index.html."""
-        response = self.client.get(reverse('proveedores:inicio'))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'proveedores/index.html')
-
-    def test_ventas_usa_template_correcto(self):
-        """La vista de ventas debe usar ventas/index.html."""
-        response = self.client.get(reverse('ventas:inicio'))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'ventas/index.html')
-
-    def test_reportes_usa_template_correcto(self):
-        """La vista de reportes debe usar reportes/index.html."""
-        response = self.client.get(reverse('reportes:inicio'))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'reportes/index.html')
+from clientes.models    import Cliente
+from productos.models   import Categoria, Producto
+from proveedores.models import Proveedor
+from ventas.models      import Venta
 
 
-class ContextoBienvenidaTest(TestCase):
-    """Verifica el contexto de la vista de bienvenida."""
+class ProductoEscrituraTest(TestCase):
+    """Tests de CreateView, UpdateView y DeleteView de Producto."""
 
-    def test_contexto_contiene_modulos(self):
-        """La vista de inicio debe pasar 'modulos' en el contexto."""
-        response = self.client.get('/')
-        self.assertIn('modulos', response.context,
-                      "El contexto debe incluir la lista 'modulos'")
-
-    def test_contexto_tiene_seis_modulos(self):
-        """El contexto debe contener exactamente 6 módulos."""
-        response = self.client.get('/')
-        modulos = response.context.get('modulos', [])
-        self.assertEqual(
-            len(modulos), 6,
-            f"Se esperaban 6 módulos, se encontraron {len(modulos)}"
+    def setUp(self):
+        self.user = User.objects.create_user(
+            'testuser', password='testpass123'
+        )
+        self.cat  = Categoria.objects.create(nombre='Cat Test')
+        self.prod = Producto.objects.create(
+            nombre='Laptop', precio=Decimal('10000.00'),
+            stock=5, categoria=self.cat
         )
 
+    # ── Protección de autenticación ──────────────────────────────────────
 
-class StaticFilesConfigTest(TestCase):
-    """Verifica la configuración de archivos estáticos y WhiteNoise."""
+    def test_crear_sin_auth_redirige_a_login(self):
+        """GET /productos/nuevo/ sin login → 302 a /accounts/login/."""
+        r = self.client.get(reverse('productos:crear'))
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/accounts/login/', r['Location'])
 
-    def test_static_url_es_slash_static(self):
-        """STATIC_URL debe ser '/static/'."""
-        from django.conf import settings
-        self.assertEqual(settings.STATIC_URL, '/static/')
+    def test_editar_sin_auth_redirige_a_login(self):
+        """GET /productos/<id>/editar/ sin login → 302."""
+        r = self.client.get(
+            reverse('productos:editar', args=[self.prod.pk])
+        )
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/accounts/login/', r['Location'])
 
-    def test_static_root_configurado(self):
-        """STATIC_ROOT debe estar definido."""
-        from django.conf import settings
-        self.assertTrue(bool(settings.STATIC_ROOT),
-                        "STATIC_ROOT no está configurado")
+    # ── Vistas con autenticación ─────────────────────────────────────────
 
-    def test_whitenoise_en_middleware(self):
-        """WhiteNoise debe estar en MIDDLEWARE."""
-        from django.conf import settings
-        self.assertIn(
-            'whitenoise.middleware.WhiteNoiseMiddleware',
-            settings.MIDDLEWARE,
-            "WhiteNoise no está en MIDDLEWARE"
+    def test_crear_con_auth_http_200(self):
+        """GET /productos/nuevo/ con login → 200."""
+        self.client.force_login(self.user)
+        r = self.client.get(reverse('productos:crear'))
+        self.assertEqual(r.status_code, 200)
+        self.assertTemplateUsed(r, 'productos/crear.html')
+
+    def test_post_valido_crea_producto(self):
+        """POST con datos válidos crea el producto y redirige a la lista."""
+        self.client.force_login(self.user)
+        datos = {
+            'nombre':    'Monitor 4K',
+            'precio':    '5500.00',
+            'stock':     '3',
+            'categoria': self.cat.pk,
+            'activo':    True,
+        }
+        r = self.client.post(reverse('productos:crear'), datos)
+        self.assertRedirects(r, reverse('productos:lista'))
+        self.assertTrue(
+            Producto.objects.filter(nombre='Monitor 4K').exists()
         )
 
-    def test_whitenoise_despues_de_security(self):
-        """WhiteNoise debe ir DESPUÉS de SecurityMiddleware."""
-        from django.conf import settings
-        m = settings.MIDDLEWARE
-        idx_sec  = m.index('django.middleware.security.SecurityMiddleware')
-        idx_wn   = m.index('whitenoise.middleware.WhiteNoiseMiddleware')
-        self.assertLess(idx_sec, idx_wn,
-                        "SecurityMiddleware debe ir ANTES que WhiteNoise")
+    def test_post_invalido_muestra_errores(self):
+        """POST con precio negativo → 200 con errores en el formulario."""
+        self.client.force_login(self.user)
+        datos = {
+            'nombre':    'Producto mal',
+            'precio':    '-100.00',   # inválido
+            'stock':     '5',
+            'categoria': self.cat.pk,
+        }
+        r = self.client.post(reverse('productos:crear'), datos)
+        self.assertEqual(r.status_code, 200)
+        self.assertFormError(r, 'form', 'precio',
+                             'Ensure this value is greater than or equal to 0.00.')
+
+    def test_delete_elimina_producto(self):
+        """POST /productos/<id>/eliminar/ → borra el producto y redirige."""
+        self.client.force_login(self.user)
+        pk = self.prod.pk
+        r  = self.client.post(
+            reverse('productos:eliminar', args=[pk])
+        )
+        self.assertRedirects(r, reverse('productos:lista'))
+        self.assertFalse(Producto.objects.filter(pk=pk).exists())
+
+
+class ClienteEscrituraTest(TestCase):
+    """Tests de CreateView de Cliente."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('userC', password='pass')
+
+    def test_crear_cliente_sin_auth_redirige(self):
+        r = self.client.get(reverse('clientes:crear'))
+        self.assertEqual(r.status_code, 302)
+
+    def test_post_valido_crea_cliente(self):
+        """POST válido crea el cliente y redirige."""
+        self.client.force_login(self.user)
+        r = self.client.post(reverse('clientes:crear'), {
+            'nombre': 'María López',
+            'correo': 'maria@test.com',
+            'activo': True,
+        })
+        self.assertRedirects(r, reverse('clientes:lista'))
+        self.assertTrue(
+            Cliente.objects.filter(correo='maria@test.com').exists()
+        )
+
+    def test_post_correo_duplicado_muestra_error(self):
+        """POST con correo ya existente → 200 con error de unicidad."""
+        Cliente.objects.create(nombre='Ana', correo='dup@test.com')
+        self.client.force_login(self.user)
+        r = self.client.post(reverse('clientes:crear'), {
+            'nombre': 'Otro',
+            'correo': 'dup@test.com',
+            'activo': True,
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'ya existe')
+
+
+class ProveedorEscrituraTest(TestCase):
+    """Tests de CreateView y DeleteView de Proveedor."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('userP', password='pass')
+        self.prov = Proveedor.objects.create(
+            nombre='Prov Test', correo='prov@test.com'
+        )
+
+    def test_crear_proveedor_sin_auth_redirige(self):
+        r = self.client.get(reverse('proveedores:crear'))
+        self.assertEqual(r.status_code, 302)
+
+    def test_delete_proveedor_con_auth(self):
+        """POST /proveedores/<id>/eliminar/ → borra y redirige."""
+        self.client.force_login(self.user)
+        pk = self.prov.pk
+        r  = self.client.post(
+            reverse('proveedores:eliminar', args=[pk])
+        )
+        self.assertRedirects(r, reverse('proveedores:lista'))
+        self.assertFalse(Proveedor.objects.filter(pk=pk).exists())
+
+
+class VentaEscrituraTest(TestCase):
+    """Tests de crear_venta y VentaDeleteView."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('userV', password='pass')
+        cat       = Categoria.objects.create(nombre='Cat')
+        self.prod = Producto.objects.create(
+            nombre='P', precio=Decimal('100.00'), stock=5, categoria=cat
+        )
+        self.cli  = Cliente.objects.create(nombre='C', correo='c@t.com')
+
+    def test_crear_venta_sin_auth_redirige(self):
+        r = self.client.get(reverse('ventas:crear'))
+        self.assertEqual(r.status_code, 302)
+
+    def test_post_valido_crea_venta(self):
+        """POST válido crea Venta + DetalleVenta y redirige al detalle."""
+        self.client.force_login(self.user)
+        r = self.client.post(reverse('ventas:crear'), {
+            'cliente':         self.cli.pk,
+            'producto':        self.prod.pk,
+            'cantidad':        2,
+            'precio_unitario': '100.00',
+        })
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(Venta.objects.count(), 1)
+        venta = Venta.objects.first()
+        self.assertEqual(venta.total, Decimal('200.00'))
 ```
 
----
-
-### 6.2 Ejecutar los tests
+### 7.2 Ejecutar los tests
 
 ```cmd
-python manage.py test tests.test_w02_mvt --verbosity=2
+python manage.py test tests.test_w08_escritura --verbosity=2
 ```
 
 **Resultado esperado:**
 ```
-test_bienvenida_extiende_base ... ok
-test_bienvenida_usa_template_correcto ... ok
-test_clientes_usa_template_correcto ... ok
-test_contexto_contiene_modulos ... ok
-test_contexto_tiene_seis_modulos ... ok
-test_productos_usa_template_correcto ... ok
-test_proveedores_usa_template_correcto ... ok
-test_reportes_usa_template_correcto ... ok
-test_static_root_configurado ... ok
-test_static_url_es_slash_static ... ok
-test_ventas_usa_template_correcto ... ok
-test_whitenoise_despues_de_security ... ok
-test_whitenoise_en_middleware ... ok
+test_crear_cliente_sin_auth_redirige ... ok
+test_crear_proveedor_sin_auth_redirige ... ok
+test_crear_sin_auth_redirige_a_login ... ok
+test_crear_venta_sin_auth_redirige ... ok
+test_crear_con_auth_http_200 ... ok
+test_delete_elimina_producto ... ok
+test_delete_proveedor_con_auth ... ok
+test_editar_sin_auth_redirige_a_login ... ok
+test_post_correo_duplicado_muestra_error ... ok
+test_post_invalido_muestra_errores ... ok
+test_post_valido_crea_cliente ... ok
+test_post_valido_crea_producto ... ok
+test_post_valido_crea_venta ... ok
 
 Ran 12 tests in X.XXXs
 OK
 ```
 
-### 6.3 Suite acumulada W01 + W02
+### 7.3 Suite acumulada
 
 ```cmd
-python manage.py test tests --verbosity=2
+python manage.py test tests --verbosity=0
 ```
 
-**Resultado esperado:** `Ran 23 tests in X.XXXs · OK`
+**Resultado esperado:** `Ran 90 tests in X.XXXs · OK` (78 + 12)
 
 ---
 
-## CIERRE — Commit, Respaldo y Scrum (15 min)
+## CIERRE — Commit Final y Respaldo (10 min)
 
-### Actualizar `sprint0_planning.md`
+### Actualizar `sprint2_planning.md`
 
 ```markdown
-## Sprint Backlog — W02 (actualización de estados)
+## Sprint Backlog — actualización W08
 
 | Tarea | Estado |
 |---|---|
-| Crear templates/base.html con Fable 5 AzulERP | ✅ |
-| Crear 5 plantillas index.html por app | ✅ |
-| Migrar vistas a views.py con render() | ✅ |
-| Configurar WhiteNoise y STATIC_ROOT | ✅ |
-| Crear core/settings_prod.py borrador | ✅ |
-| Actualizar requirements.txt (gunicorn, psycopg2) | ✅ |
-| Crear tests/test_w02_mvt.py — 12 tests OK | ✅ |
-| HU-E1-03 Repositorio GitHub: avance W02 commiteado | ✅ |
+| ListView + DetailView × 4 apps | ✅ W07 |
+| 8 templates lista + detalle | ✅ W07 |
+| forms.py × 4 apps (ModelForm + widgets erp-input) | ✅ W08 |
+| CreateView + UpdateView + DeleteView × 3 apps | ✅ W08 |
+| crear_venta (función) + VentaDeleteView | ✅ W08 |
+| 12 templates crear + editar + eliminar | ✅ W08 |
+| Descomentar rutas escritura en urls.py × 4 | ✅ W08 |
+| messages flash en cada operación CRUD | ✅ W08 |
+| 12 tests de escritura (auth + POST válido/inválido) | ✅ W08 |
+| Login/Logout + LoginRequired ya aplicado | ✅ W08 |
+| 3 roles RBAC (Gerente/Vendedor/Almacén) | ⏳ W09 |
 ```
 
----
-
-### Commit de cierre W02
+### Commit de cierre W08
 
 ```cmd
 git add .
 git status
-```
 
-Verificar que **NO** aparecen en staging:
-- `env_erp/`
-- `.env`
-- `staticfiles/`
-- `db.sqlite3`
+:: Verificar que incluye:
+::   */forms.py × 4 apps
+::   */views.py × 4 apps (con Create/Update/Delete)
+::   */urls.py × 4 apps (rutas descomentadas)
+::   */templates/*/crear.html × 4
+::   */templates/*/editar.html × 3 (no ventas)
+::   */templates/*/eliminar.html × 4
+::   tests/test_w08_escritura.py
 
-```cmd
-git commit -m "Sprint 0 W02 CIERRE: MVT completo + Fable5 + WhiteNoise + 23 tests OK"
+git commit -m "Sprint 2 W08: CRUD completo + LoginRequired + messages + 90 tests OK"
 git push origin main
 ```
-
----
 
 ### Ejecutar `finalizar_sesion.bat`
 
 ```cmd
-:: 1. Detener el servidor (Ctrl+C)
-:: 2. Cerrar la terminal
-:: 3. Ejecutar el respaldo
 E:\finalizar_sesion.bat
-```
-
-Verificar en `E:\WorkSpace_ERP\` que existen:
-
-```
-[ ] templates\base.html
-[ ] templates\bienvenida.html
-[ ] productos\templates\productos\index.html  (y los otros 4)
-[ ] core\settings_prod.py
-[ ] requirements.txt (actualizado con gunicorn)
-[ ] tests\test_w02_mvt.py
-[ ] .env.example
 ```
 
 ---
 
-## CHECKLIST FINAL W02
+## CHECKLIST FINAL W08
 
 ### Técnico
 
 ```
-TEMPLATES
-[ ] templates/base.html con tokens CSS día y noche completos
-[ ] Toggle 🌙 funciona y persiste en localStorage
-[ ] 5 plantillas app/templates/app/index.html creadas
-[ ] templates/bienvenida.html usa {% extends "base.html" %}
-[ ] Enlace activo en navbar se resalta en cada módulo
+FORMS
+[ ] productos/forms.py: ProductoForm con widgets erp-input
+[ ] clientes/forms.py:  ClienteForm con widgets erp-input
+[ ] proveedores/forms.py: ProveedorForm con widgets erp-input
+[ ] ventas/forms.py: VentaForm + DetalleVentaForm con widgets
 
-VISTAS
-[ ] core/views.py: bienvenida() usa render() con contexto 'modulos'
-[ ] 5 apps: views.py con función index() que usa render()
-[ ] 5 apps: urls.py sin código de vista inline (solo path())
-[ ] app_name definido en todos los urls.py
+VISTAS DE ESCRITURA
+[ ] ProductoCreateView(LoginRequiredMixin, CreateView) — Login PRIMERO
+[ ] ProductoUpdateView: pk_url_kwarg='producto_id', success_url=reverse_lazy
+[ ] ProductoDeleteView: pk_url_kwarg='producto_id'
+[ ] ClienteCreateView + ClienteUpdateView + ClienteDeleteView: ídem
+[ ] ProveedorCreateView + ProveedorUpdateView + ProveedorDeleteView: ídem
+[ ] crear_venta: función con auth manual + 2 forms + messages.success
+[ ] VentaDeleteView: pk_url_kwarg='venta_id'
+[ ] messages.success en form_valid() de cada vista
 
-ESTÁTICOS
-[ ] static/erp_custom.css creado
-[ ] STATICFILES_DIRS != STATIC_ROOT (carpetas distintas)
-[ ] collectstatic → sin errores
-[ ] WhiteNoise en MIDDLEWARE en posición 1 (después de Security)
+TEMPLATES (12 nuevos archivos)
+[ ] productos/crear.html + editar.html + eliminar.html
+[ ] clientes/crear.html + editar.html + eliminar.html
+[ ] proveedores/crear.html + editar.html + eliminar.html
+[ ] ventas/crear.html (2 forms) + eliminar.html
+[ ] Todos tienen {% csrf_token %} en el form
+[ ] eliminar.html usa POST (no GET) — botón en <form method="post">
 
-PRODUCCIÓN
-[ ] core/settings_prod.py con DEBUG=False y SECURE_* activados
-[ ] .env.example en el repositorio (sin valores reales)
-[ ] requirements.txt: gunicorn + psycopg2-binary + dj-database-url
+URLS
+[ ] urls.py × 4 apps: rutas nuevo/editar/eliminar descomentadas
+[ ] GET /productos/nuevo/ sin auth → 302 a /accounts/login/
+[ ] GET /productos/nuevo/ con auth → 200
+[ ] POST /productos/nuevo/ válido → 302 a lista con mensaje flash
+[ ] POST /productos/nuevo/ inválido → 200 con errores visibles
 
 TESTS
-[ ] test tests.test_w02_mvt → 12/12 OK
-[ ] test tests → 23/23 OK (W01 + W02 acumulados)
+[ ] test tests.test_w08_escritura → 12/12 OK
+[ ] test tests → 90/90 OK acumulados
+[ ] test de auth verifica redirect a /accounts/login/
+[ ] test POST válido verifica objeto en BD con .exists()
+[ ] test POST inválido verifica assertFormError
 
-GIT / SCRUM
-[ ] sprint0_planning.md con estados actualizados
-[ ] 2 commits en W02 con mensajes descriptivos
-[ ] git push → GitHub con ≥ 4 commits totales
-[ ] finalizar_sesion.bat → archivos en USB verificados
+GIT
+[ ] sprint2_planning.md actualizado
+[ ] Commit parcial + commit de cierre
+[ ] git push → GitHub con forms + vistas + templates
+[ ] finalizar_sesion.bat → archivos en USB
 ```
 
 ---
 
-## DIAGRAMA DE FLUJO — Petición GET en W02
+## DIAGRAMA: Flujo POST de Create/Update/Delete
 
 ```
-Navegador: GET /productos/
-      │
-      ▼
-core/urls.py
-  path('productos/', include('productos.urls', namespace='productos'))
-      │
-      ▼
-productos/urls.py
-  path('', views.index, name='inicio')
-      │
-      ▼
-productos/views.py
-  def index(request):
-      context = {'titulo': 'Productos', ...}
-      return render(request, 'productos/index.html', context)
-      │
-      ▼
-Django Template Engine
-  productos/templates/productos/index.html
-  ├── {% extends "base.html" %}
-  │       ├── tokens CSS día/noche
-  │       ├── navbar Fable 5 AzulERP
-  │       ├── messages flash
-  │       └── footer
-  └── {% block content %}
-          └── erp-page-title + erp-card + badge-erp-gold
-      │
-      ▼
-HTML final → Navegador (con modo oscuro opcional)
+POST /productos/nuevo/
+    │
+    ▼
+Django → ProductoCreateView.dispatch()
+    │
+    ├── ¿Usuario autenticado?
+    │       NO → redirect /accounts/login/?next=/productos/nuevo/
+    │       SÍ → continuar
+    │
+    ▼
+ProductoCreateView.post()
+    │
+    ├── ProductoForm(request.POST)
+    │
+    ├── form.is_valid()?
+    │       NO  → render 'productos/crear.html' con errores (HTTP 200)
+    │       SÍ  → form.save() → Producto creado en BD
+    │               messages.success(request, "Producto creado...")
+    │               redirect → reverse_lazy('productos:lista')
+    │
+    ▼
+HTTP 302 → /productos/
+    │
+    ▼
+ProductoListView → muestra lista + mensaje flash en base.html
 ```
 
 ---
 
-## HILO CONDUCTOR → W03
+## HILO CONDUCTOR → W09
 
-**¿Qué entrega W02?**
-Sistema MVT completo con 6 vistas que usan `render()`, sistema de templates
-Fable 5 AzulERP con modo claro/oscuro persistente, WhiteNoise configurado,
-`settings_prod.py` listo como base, y `requirements.txt` con `gunicorn`.
+**¿Qué entrega W08?**
+CRUD completo para las 4 entidades principales con formularios Fable 5,
+`LoginRequiredMixin` en todas las vistas de escritura, mensajes flash,
+y 90 tests acumulados.
 
-**¿Qué necesita W03 de W02?**
+**¿Qué abre W09?**
+Con la autenticación básica (login/logout) ya funcionando mediante
+`LoginRequiredMixin`, W09 agrega **granularidad de permisos**:
+3 grupos (Gerente, Vendedor, Almacén) con accesos diferenciados.
 
-| Artefacto de W02 | Uso en W03 |
+**¿Qué necesita W09 de W08?**
+
+| Artefacto de W08 | Uso en W09 |
 |---|---|
-| `settings_prod.py` | W03 agrega `DATABASE_URL`, `ALLOWED_HOSTS` de Render, `dj-database-url` |
-| `requirements.txt` con `gunicorn` | W03 lo usa en `Procfile`: `web: gunicorn core.wsgi` |
-| `collectstatic` configurado | Render ejecuta `python manage.py collectstatic` en el build |
-| Proyecto en GitHub | W03 conecta el repo directamente a Render.com |
+| `LoginRequiredMixin` en todas las vistas de escritura | W09 agrega `PermissionRequiredMixin` sobre ese foundation |
+| `crear_venta` con check de autenticación manual | W09 lo reemplaza con `@login_required` decorator |
+| 90 tests pasando | W09 agrega tests por rol (Vendedor no puede borrar, Gerente sí) |
+
+**Tarea de investigación para W09:**
+> Lee la documentación de Django sobre grupos y permisos:
+> `https://docs.djangoproject.com/en/4.2/topics/auth/default/#permissions-and-authorization`
+>
+> ¿Cómo se crea un grupo en Django con permisos específicos?
+> ¿Qué diferencia hay entre `has_perm('app.add_producto')` y
+> `PermissionRequiredMixin`?
 
 **Pregunta de reflexión:**
-> "¿Cuál es la diferencia entre `STATIC_ROOT` y `STATICFILES_DIRS`?
-> ¿Por qué no pueden apuntar a la misma carpeta?"
-
-**Tarea de investigación para W03:**
-> ¿Qué es un `Procfile` y qué diferencia hay entre
-> `gunicorn core.wsgi` y `python manage.py runserver`
-> en términos de seguridad y rendimiento en producción?
+> "En W08 protegimos las vistas con `LoginRequiredMixin`, que verifica
+> si el usuario está autenticado. ¿Es suficiente para un ERP real?
+> ¿Qué pasaría si un vendedor pudiera acceder a `/productos/eliminar/`?
+> ¿Cómo se resuelve eso en W09?"
 
 ---
 
-## Referencia rápida de comandos W02
+## Referencia rápida de comandos W08
 
 ```cmd
 :: SESIÓN
@@ -1457,23 +1559,22 @@ E:\finalizar_sesion.bat
 
 :: DJANGO
 python manage.py check
-python manage.py collectstatic --no-input
 python manage.py runserver
 
 :: TESTS
-python manage.py test tests.test_w02_mvt --verbosity=2
-python manage.py test tests --verbosity=2
+python manage.py test tests.test_w08_escritura --verbosity=2
+python manage.py test tests --verbosity=0   (90 tests)
 
 :: GIT
 git add .
-git commit -m "Sprint 0 W02: descripción"
+git commit -m "Sprint 2 W08: descripción"
 git push origin main
 git log --oneline
 ```
 
 ---
 
-*Guía de Laboratorio W02 · ERP Django*
-*Espiral 1 · Sprint 0 · MVT + Fable 5 AzulERP + WhiteNoise*
+*Guía de Laboratorio W08 · ERP Django*
+*Espiral 3 · Sprint 2 Desarrollo · CRUD Completo + LoginRequiredMixin + Messages*
 *SEP 3061300006-23 · UTEC Celaya · MC. Román Fernando López González*
-Mostrando Guia_Lab_W02.md.
+Mostrando Guia_Lab_W08.md.

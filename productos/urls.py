@@ -9,12 +9,13 @@ urlpatterns = [
     # Lectura (W07)
     path('',
          views.ProductoListView.as_view(),
-         name='lista'),
+         name='inicio'),
     path('<int:producto_id>/',
          views.ProductoDetailView.as_view(),
          name='detalle'),
+
     # Escritura (W08) — comentadas hasta implementarlas
-    # path('nuevo/',                    views.ProductoCreateView.as_view(), name='crear'),
-    # path('<int:producto_id>/editar/',  views.ProductoUpdateView.as_view(), name='editar'),
-    # path('<int:producto_id>/eliminar/',views.ProductoDeleteView.as_view(), name='eliminar'),
+    # path('nuevo/',                     views.ProductoCreateView.as_view(), name='crear'),
+    # path('<int:producto_id>/editar/',   views.ProductoUpdateView.as_view(), name='editar'),
+    # path('<int:producto_id>/eliminar/', views.ProductoDeleteView.as_view(), name='eliminar'),
 ]
