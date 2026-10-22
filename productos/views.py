@@ -1,4 +1,4 @@
-# productos/views.py — agregar los imports al inicio del archivo:
+# productos/views.py
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
@@ -7,22 +7,45 @@ from django.views.generic import (
 )
 
 from .forms import ProductoForm
+from .models import Producto
 
 
+# ---------------------------------------------------------------
+# Lectura (W07)
+# ---------------------------------------------------------------
+class ProductoListView(ListView):
+    """Lista de productos."""
+
+    model = Producto
+    template_name = 'productos/lista.html'
+    context_object_name = 'productos'
+    paginate_by = 20
+
+
+class ProductoDetailView(DetailView):
+    """Detalle de un producto."""
+
+    model = Producto
+    template_name = 'productos/detalle.html'
+    context_object_name = 'producto'
+    pk_url_kwarg = 'producto_id'
+
+
+# ---------------------------------------------------------------
+# Escritura (W08)
+# ---------------------------------------------------------------
 class ProductoCreateView(LoginRequiredMixin, CreateView):
     """Formulario para crear un nuevo producto.
 
     LoginRequiredMixin PRIMERO en la herencia (obligatorio).
-    Redirige a /accounts/login/ si el usuario no está autenticado.
     """
 
-    model         = Producto
-    form_class    = ProductoForm
+    model = Producto
+    form_class = ProductoForm
     template_name = 'productos/crear.html'
-    success_url   = reverse_lazy('productos:lista')  # reverse_lazy (no reverse)
+    success_url = reverse_lazy('productos:lista')
 
     def form_valid(self, form):
-        """Agrega mensaje flash de éxito al guardar."""
         response = super().form_valid(form)
         messages.success(
             self.request,
@@ -34,11 +57,11 @@ class ProductoCreateView(LoginRequiredMixin, CreateView):
 class ProductoUpdateView(LoginRequiredMixin, UpdateView):
     """Formulario para editar un producto existente."""
 
-    model         = Producto
-    form_class    = ProductoForm
+    model = Producto
+    form_class = ProductoForm
     template_name = 'productos/editar.html'
-    pk_url_kwarg  = 'producto_id'
-    success_url   = reverse_lazy('productos:lista')
+    pk_url_kwarg = 'producto_id'
+    success_url = reverse_lazy('productos:lista')
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -50,22 +73,15 @@ class ProductoUpdateView(LoginRequiredMixin, UpdateView):
 
 
 class ProductoDeleteView(LoginRequiredMixin, DeleteView):
-    """Confirmación y borrado de un producto.
+    """Confirmación y borrado de un producto (solo POST)."""
 
-    SOLO acepta POST. El template debe incluir
-    un formulario con {% csrf_token %} para evitar CSRF.
-    """
-
-    model         = Producto
+    model = Producto
     template_name = 'productos/eliminar.html'
-    pk_url_kwarg  = 'producto_id'
-    success_url   = reverse_lazy('productos:lista')
+    pk_url_kwarg = 'producto_id'
+    success_url = reverse_lazy('productos:lista')
 
     def form_valid(self, form):
-        nombre   = self.object.nombre
+        nombre = self.object.nombre
         response = super().form_valid(form)
-        messages.success(
-            self.request,
-            f'Producto "{nombre}" eliminado.'
-        )
+        messages.success(self.request, f'Producto "{nombre}" eliminado.')
         return response

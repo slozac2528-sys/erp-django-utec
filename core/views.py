@@ -1,4 +1,4 @@
-# core/views.py
+﻿# core/views.py
 """Vistas principales del proyecto ERP — W02.
 
 Migración: HttpResponse → render() con templates y contexto.
@@ -8,37 +8,30 @@ from django.urls import reverse
 
 
 def bienvenida(request):
-    """Página de inicio del ERP con tarjetas de módulos.
-
-    Context:
-        modulos (list): Lista de dicts con icono, nombre, url y descripcion.
-
-    Returns:
-        HttpResponse con template bienvenida.html.
-    """
+    """Página de inicio del ERP con tarjetas de módulos."""
     modulos = [
         {
             'nombre': 'Productos',
             'icono': '📦',
-            'url': reverse('productos:inicio'),
+            'url': reverse('productos:lista'),
             'descripcion': 'Inventario, precios y stock',
         },
         {
             'nombre': 'Clientes',
             'icono': '👥',
-            'url': reverse('clientes:inicio'),
+            'url': reverse('clientes:lista'),
             'descripcion': 'Cartera y gestión de clientes',
         },
         {
             'nombre': 'Proveedores',
             'icono': '🏭',
-            'url': reverse('proveedores:inicio'),
+            'url': reverse('proveedores:lista'),
             'descripcion': 'Red de proveedores',
         },
         {
             'nombre': 'Ventas',
             'icono': '💰',
-            'url': reverse('ventas:inicio'),
+            'url': reverse('ventas:lista'),
             'descripcion': 'Pedidos, facturas y cobros',
         },
         {
