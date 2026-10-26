@@ -1,43 +1,42 @@
 # core/settings_prod.py
-"""Configuración de producción — Render.com (versión final W03).
+"""Configuración de producción — Render.com.
 
-Hereda settings.py y sobreescribe todo lo necesario para producción.
+Hereda settings.py y sobreescribe lo necesario para producción.
 
-Variables de entorno requeridas en Render Dashboard:
-    SECRET_KEY              → clave aleatoria de ≥ 50 caracteres
-    DATABASE_URL            → proporcionada automáticamente por Render PostgreSQL
+Variables de entorno requeridas en Render (Environment):
     DJANGO_SETTINGS_MODULE  → core.settings_prod
-    ALLOWED_HOSTS           → tu-app.onrender.com (o dejar vacío para auto)
-
-Uso local con Docker:
-    export DJANGO_SETTINGS_MODULE=core.settings_prod
-    export SECRET_KEY=dev-clave-temporal
-    export DATABASE_URL=postgres://erp_user:erp_pass@db:5432/erp_db
-    gunicorn core.wsgi --bind 0.0.0.0:8000
+    SECRET_KEY              → clave aleatoria de >= 50 caracteres
+    DATABASE_URL            → URL de PostgreSQL (Internal Database URL de Render)
+Opcionales:
+    ALLOWED_HOSTS           → dominios extra separados por coma
+    DB_SSL_REQUIRE          → "False" solo para pruebas locales sin SSL
 """
-from .settings import *   # hereda toda la configuración base
 import os
+
 import dj_database_url
+
+from .settings import *  # noqa: F401,F403  (hereda la configuración base)
 
 # ── SEGURIDAD BÁSICA ───────────────────────────────────────────────────────
 DEBUG = False
-SECRET_KEY = os.environ['SECRET_KEY']   # falla intencionalmente si no existe
+SECRET_KEY = os.environ['SECRET_KEY']   # falla a propósito si no existe
 
-# ── HOSTS PERMITIDOS ────────────────────────────────────────────────────────
-# Render inyecta RENDER_EXTERNAL_HOSTNAME automáticamente
+# ── HOSTS PERMITIDOS ───────────────────────────────────────────────────────
+# Render inyecta RENDER_EXTERNAL_HOSTNAME automáticamente.
 _render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME', '')
-_extra_hosts  = os.environ.get('ALLOWED_HOSTS', '').split(',')
+_extra_hosts = os.environ.get('ALLOWED_HOSTS', '').split(',')
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1'] + (
-    [_render_host] if _render_host else []
-) + [h for h in _extra_hosts if h]
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+if _render_host:
+    ALLOWED_HOSTS.append(_render_host)
+ALLOWED_HOSTS += [h.strip() for h in _extra_hosts if h.strip()]
 
-# ── BASE DE DATOS: PostgreSQL via DATABASE_URL ─────────────────────────────
+# ── BASE DE DATOS: PostgreSQL vía DATABASE_URL ─────────────────────────────
 DATABASES = {
     'default': dj_database_url.config(
-        conn_max_age=600,          # conexiones persistentes 10 min
-        conn_health_checks=True,   # verifica conexión antes de usarla
-        ssl_require=True,          # Render requiere SSL en PostgreSQL
+        conn_max_age=600,
+        conn_health_checks=True,
+        ssl_require=os.environ.get('DB_SSL_REQUIRE', 'True') == 'True',
     )
 }
 
@@ -45,8 +44,15 @@ DATABASES = {
 CSRF_TRUSTED_ORIGINS = []
 if _render_host:
     CSRF_TRUSTED_ORIGINS.append(f'https://{_render_host}')
+CSRF_TRUSTED_ORIGINS += [
+    f'https://{h.strip()}' for h in _extra_hosts
+    if h.strip() and not h.strip().startswith(('http://', 'https://'))
+]
 
 # ── HEADERS HTTP SEGUROS ───────────────────────────────────────────────────
+# Render termina el SSL en su proxy. Sin SECURE_PROXY_SSL_HEADER,
+# SECURE_SSL_REDIRECT provoca un bucle infinito de redirecciones.
+SECURE_PROXY_SSL_HEADER        = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT            = True
 SECURE_HSTS_SECONDS            = 31536000    # 1 año
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
@@ -58,9 +64,18 @@ SECURE_CONTENT_TYPE_NOSNIFF    = True
 SECURE_REFERRER_POLICY         = 'same-origin'
 
 # ── ARCHIVOS ESTÁTICOS ─────────────────────────────────────────────────────
-# WhiteNoise ya configurado en settings.py; solo confirmar almacenamiento
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
-# ── LOGGING: solo WARNING y superiores en producción ──────────────────────
+# Django 4.2+: solo STORAGES. NO definir STATICFILES_STORAGE ni
+# DEFAULT_FILE_STORAGE (son mutuamente excluyentes con STORAGES).
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+    },
+}
+
+# ── LOGGING: solo WARNING y superiores ─────────────────────────────────────
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
