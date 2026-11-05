@@ -1,20 +1,26 @@
-# ventas/views.py — imports necesarios (además de los existentes):
+# ventas/views.py — imports
 import mimetypes
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
+from typing import Optional
 from urllib.parse import unquote, urlparse
 
+import weasyprint
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.staticfiles import finders
-from django.http.request import validate_host
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.template.loader import render_to_string
 from django.utils import timezone
 
-import weasyprint
+from configuracion.models import ConfiguracionERP
+from .models import Venta
 
 
-# ventas/views.py — agregar las funciones auxiliares y reemplazar venta_pdf:
+# ventas/views.py — funciones auxiliares
 
-def _ruta_local(url_path: str) -> Path | None:
+def _ruta_local(url_path: str) -> Optional[Path]:
     """Traduce /static/... o /media/... a un archivo en disco (o None)."""
     static_prefix = "/" + settings.STATIC_URL.lstrip("/")
     media_prefix = "/" + settings.MEDIA_URL.lstrip("/")
@@ -36,14 +42,19 @@ def _ruta_local(url_path: str) -> Path | None:
     return None
 
 
+def _es_host_propio(hostname: str) -> bool:
+    """True si el host apunta a este mismo servidor."""
+    permitidos = ["localhost", "127.0.0.1", *settings.ALLOWED_HOSTS]
+    return hostname in permitidos or "*" in permitidos
+
+
 def _url_fetcher_local(url: str, timeout: int = 10, ssl_context=None):
     """url_fetcher de WeasyPrint que lee /static/ y /media/ desde disco.
 
-    Evita que WeasyPrint haga peticiones HTTP al propio servidor (lento y
-    puede bloquear a los workers de Gunicorn). Si el archivo no existe
-    (p. ej. un logo perdido por el disco efímero de Render), se lanza
+    Evita peticiones HTTP al propio servidor (lentas y pueden bloquear a
+    los workers de Gunicorn). Si el archivo local no existe, lanza
     FileNotFoundError: WeasyPrint solo registra un aviso y omite la imagen.
-    Las URLs externas (p. ej. media en S3) usan el fetcher por defecto.
+    Las URLs externas (p. ej. S3) usan el fetcher por defecto.
     """
     parsed = urlparse(url)
     if parsed.scheme in ("http", "https", "file"):
@@ -54,10 +65,7 @@ def _url_fetcher_local(url: str, timeout: int = 10, ssl_context=None):
                 "mime_type": mimetypes.guess_type(ruta.name)[0],
                 "filename": ruta.name,
             }
-        propio = validate_host(
-            parsed.hostname or "", ["localhost", "127.0.0.1", *settings.ALLOWED_HOSTS]
-        )
-        if parsed.scheme == "file" or propio:
+        if parsed.scheme == "file" or _es_host_propio(parsed.hostname or ""):
             raise FileNotFoundError(url)
     return weasyprint.default_url_fetcher(url, timeout=timeout, ssl_context=ssl_context)
 
@@ -77,18 +85,7 @@ def calcular_totales(subtotal, iva_porcentaje) -> dict:
 
 @login_required
 def venta_pdf(request, venta_id: int) -> HttpResponse:
-    """Genera y descarga la factura de una venta en formato PDF.
-
-    Motor: WeasyPrint (requiere entorno Linux o contenedor Docker).
-
-    Args:
-        request: HttpRequest de Django.
-        venta_id: ID de la venta a generar.
-
-    Returns:
-        HttpResponse con Content-Type application/pdf y descarga directa.
-    """
-
+    """Genera y descarga la factura de una venta en formato PDF (WeasyPrint)."""
     venta = get_object_or_404(
         Venta.objects.select_related("cliente").prefetch_related(
             "detalles__producto__categoria"
@@ -105,9 +102,6 @@ def venta_pdf(request, venta_id: int) -> HttpResponse:
 
     html_string = render_to_string("ventas/factura_pdf.html", context, request=request)
 
-    # ── WeasyPrint: conversión HTML → PDF ─────────────────────────────
-    # base_url resuelve rutas relativas como /media/... o /static/...
-    # y _url_fetcher_local las lee del disco en vez de pedirlas por HTTP.
     pdf_bytes = weasyprint.HTML(
         string=html_string,
         base_url=request.build_absolute_uri("/"),
