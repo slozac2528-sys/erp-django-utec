@@ -1,24 +1,24 @@
-# ventas/views.py — imports
 import mimetypes
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Optional
 from urllib.parse import unquote, urlparse
 
-import weasyprint
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.staticfiles import finders
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
+from django.urls import reverse_lazy
 from django.utils import timezone
+from django.views.generic import DeleteView, DetailView, ListView
 
 from configuracion.models import ConfiguracionERP
+from core.mixins import PermisoRBACMixin
+from .forms import DetalleVentaForm, VentaForm
 from .models import Venta
-
-
-# ventas/views.py — funciones auxiliares
 
 def _ruta_local(url_path: str) -> Optional[Path]:
     """Traduce /static/... o /media/... a un archivo en disco (o None)."""
@@ -49,13 +49,9 @@ def _es_host_propio(hostname: str) -> bool:
 
 
 def _url_fetcher_local(url: str, timeout: int = 10, ssl_context=None):
-    """url_fetcher de WeasyPrint que lee /static/ y /media/ desde disco.
+    """url_fetcher de WeasyPrint que lee /static/ y /media/ desde disco."""
+    import weasyprint  # importación diferida: solo se necesita al generar PDF
 
-    Evita peticiones HTTP al propio servidor (lentas y pueden bloquear a
-    los workers de Gunicorn). Si el archivo local no existe, lanza
-    FileNotFoundError: WeasyPrint solo registra un aviso y omite la imagen.
-    Las URLs externas (p. ej. S3) usan el fetcher por defecto.
-    """
     parsed = urlparse(url)
     if parsed.scheme in ("http", "https", "file"):
         ruta = _ruta_local(unquote(parsed.path))
@@ -71,12 +67,7 @@ def _url_fetcher_local(url: str, timeout: int = 10, ssl_context=None):
 
 
 def calcular_totales(subtotal, iva_porcentaje) -> dict:
-    """Subtotal, IVA y total con 2 decimales (redondeo comercial).
-
-    Venta.total es la suma de las líneas SIN IVA; el IVA se suma aparte.
-    Ejemplo: calcular_totales(Decimal("3000"), Decimal("16"))
-             -> subtotal 3000.00, iva 480.00, total 3480.00
-    """
+    """Subtotal, IVA y total con 2 decimales (redondeo comercial)."""
     centavos = Decimal("0.01")
     subtotal = Decimal(subtotal).quantize(centavos, ROUND_HALF_UP)
     iva = (subtotal * Decimal(iva_porcentaje) / 100).quantize(centavos, ROUND_HALF_UP)
@@ -86,6 +77,8 @@ def calcular_totales(subtotal, iva_porcentaje) -> dict:
 @login_required
 def venta_pdf(request, venta_id: int) -> HttpResponse:
     """Genera y descarga la factura de una venta en formato PDF (WeasyPrint)."""
+    import weasyprint  # importación diferida
+
     venta = get_object_or_404(
         Venta.objects.select_related("cliente").prefetch_related(
             "detalles__producto__categoria"
@@ -96,7 +89,7 @@ def venta_pdf(request, venta_id: int) -> HttpResponse:
     context = {
         "venta": venta,
         "config": config,
-        "hoy": timezone.localdate(),  # fecha en TIME_ZONE (America/Mexico_City)
+        "hoy": timezone.localdate(),
         **calcular_totales(venta.total, config.iva_porcentaje),
     }
 
@@ -113,3 +106,89 @@ def venta_pdf(request, venta_id: int) -> HttpResponse:
         f'attachment; filename="factura_{venta.pk:05d}.pdf"'
     )
     return response
+
+
+class VentaListView(ListView):
+    """Lista paginada de ventas en orden cronológico inverso."""
+
+    model               = Venta
+    template_name       = 'ventas/lista.html'
+    context_object_name = 'ventas'
+    paginate_by         = 20
+
+    def get_queryset(self):
+        """Pre-carga cliente para evitar N+1 en la tabla de ventas."""
+        return (
+            Venta.objects
+            .select_related('cliente')
+            .order_by('-fecha')
+        )
+
+
+class VentaDetailView(DetailView):
+    """Detalle de una venta con todas sus líneas de producto."""
+
+    model               = Venta
+    template_name       = 'ventas/detalle.html'
+    context_object_name = 'venta'
+    pk_url_kwarg        = 'venta_id'
+
+    def get_queryset(self):
+        """Pre-carga cliente y prefetch líneas de detalle."""
+        return (
+            Venta.objects
+            .select_related('cliente')
+            .prefetch_related('detalles__producto')
+        )
+
+
+@login_required
+@permission_required('ventas.add_venta', raise_exception=True)
+def crear_venta(request):
+    """Crea un encabezado de venta con una línea de detalle.
+
+    GET  → muestra los dos formularios vacíos.
+    POST → valida ambos, guarda si correctos, muestra errores si no.
+
+    Protección:
+      - Anónimo → 302 al login (login_required).
+      - Autenticado sin 'ventas.add_venta' → 403.
+    Nota: para múltiples líneas usar formsets (implementar en Espiral 5).
+    """
+    venta_form   = VentaForm(request.POST or None)
+    detalle_form = DetalleVentaForm(request.POST or None)
+
+    if request.method == 'POST':
+        if venta_form.is_valid() and detalle_form.is_valid():
+            venta         = venta_form.save()
+            detalle       = detalle_form.save(commit=False)
+            detalle.venta = venta
+            # precio_unitario se auto-captura en save() si es None
+            detalle.save()
+            messages.success(
+                request,
+                f'Venta #{venta.pk} registrada. '
+                f'Total: ${venta.total:.2f}'
+            )
+            return redirect('ventas:detalle', venta_id=venta.pk)
+
+    return render(request, 'ventas/crear.html', {
+        'venta_form':   venta_form,
+        'detalle_form': detalle_form,
+    })
+
+
+class VentaDeleteView(PermisoRBACMixin, DeleteView):
+    """Elimina una venta. Anónimo → 302 login; sin permiso → 403."""
+
+    model               = Venta
+    template_name       = 'ventas/eliminar.html'
+    pk_url_kwarg        = 'venta_id'
+    success_url         = reverse_lazy('ventas:lista')
+    permission_required = 'ventas.delete_venta'
+
+    def form_valid(self, form):
+        pk       = self.object.pk
+        response = super().form_valid(form)
+        messages.success(self.request, f'Venta #{pk} eliminada.')
+        return response
