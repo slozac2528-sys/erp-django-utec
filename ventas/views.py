@@ -20,6 +20,7 @@ from core.mixins import PermisoRBACMixin
 from .forms import DetalleVentaForm, VentaForm
 from .models import Venta
 
+
 def _ruta_local(url_path: str) -> Optional[Path]:
     """Traduce /static/... o /media/... a un archivo en disco (o None)."""
     static_prefix = "/" + settings.STATIC_URL.lstrip("/")
@@ -89,7 +90,7 @@ def venta_pdf(request, venta_id: int) -> HttpResponse:
     context = {
         "venta": venta,
         "config": config,
-        "hoy": timezone.localdate(),
+        "hoy": timezone.localtime(),  # datetime con hora, en TIME_ZONE
         **calcular_totales(venta.total, config.iva_porcentaje),
     }
 
