@@ -21,3 +21,6 @@ typing_extensions==4.16.0
 tzdata==2026.4
 urllib3==2.8.0
 whitenoise==6.12.0
+# Motor de PDF (requiere librerías del sistema, incluidas en el Dockerfile)
+weasyprint==60.2
+pydyf==0.10.0
