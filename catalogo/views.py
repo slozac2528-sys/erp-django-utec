@@ -1,21 +1,18 @@
 # catalogo/views.py
-"""Vistas del módulo de catálogo y carrito — W13.
+"""Vistas del módulo de catálogo y carrito (W13).
 
-Módulo público (no requiere autenticación para lectura).
-El carrito se almacena en la sesión Django.
+El catálogo es público. El carrito vive en la sesión de Django con esta forma:
 
-Estructura del carrito en sesión:
     request.session['carrito'] = {
         '1': {
             'nombre':   'Laptop HP',
-            'precio':   '10000.00',   # str — Decimal no es JSON serializable
+            'precio':   '10000.00',   # str: Decimal no es serializable en JSON
             'cantidad': 2,
-            'imagen':   'productos/laptop.jpg'  # o None
+            'imagen':   'productos/laptop.jpg' o None,
         },
-        ...
     }
 """
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 import stripe
 from django.conf import settings
@@ -23,10 +20,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 from django.views.generic import ListView
 
 from productos.models import Producto
-from ventas.models import DetalleVenta, Pedido
+from ventas.models import Pedido
 
 from .checkout_utils import (
     armar_items,
@@ -36,25 +34,26 @@ from .checkout_utils import (
 )
 from .filters import ProductoFilter
 
-# Configurar la clave secreta de Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
+# Ajusta este valor a uno de los estados que existen en tu modelo Pedido.
+ESTADO_PENDIENTE = 'pendiente'
+ESTADO_PAGADO = 'pagado'
 
-# ── CATÁLOGO ───────────────────────────────────────────────────────────────
+CANTIDAD_MAXIMA = 99
+
+
+# ── CATÁLOGO ──────────────────────────────────────────────────────────────
 
 class CatalogoView(ListView):
-    """Catálogo público de productos con filtros.
+    """Catálogo público de productos con filtros. No requiere login."""
 
-    No requiere autenticación — accesible para cualquier visitante.
-    """
-
-    model               = Producto
-    template_name       = 'catalogo/catalogo.html'
+    model = Producto
+    template_name = 'catalogo/catalogo.html'
     context_object_name = 'productos'
-    paginate_by         = 12    # 3 filas de 4 tarjetas
+    paginate_by = 12
 
     def get_queryset(self):
-        """Filtra productos activos aplicando los filtros del request."""
         qs = (
             Producto.objects
             .select_related('categoria', 'proveedor')
@@ -65,31 +64,35 @@ class CatalogoView(ListView):
         return self.filtro.qs
 
     def get_context_data(self, **kwargs):
-        """Agrega el objeto filtro al contexto para renderizar el formulario."""
         ctx = super().get_context_data(**kwargs)
-        ctx['filtro']     = self.filtro
+        ctx['filtro'] = self.filtro
         ctx['categorias'] = self.filtro.form.fields['categoria'].queryset
         return ctx
 
 
-# ── CARRITO ─────────────────────────────────────────────────────────────────
+# ── HELPERS DEL CARRITO ───────────────────────────────────────────────────
 
-def _obtener_carrito(request: object) -> dict:
-    """Obtiene el carrito de la sesión o crea uno vacío."""
+def _obtener_carrito(request):
+    """Devuelve el carrito de la sesión (dict vacío si no existe)."""
     return request.session.get('carrito', {})
 
 
-def _guardar_carrito(request: object, carrito: dict) -> None:
-    """Guarda el carrito en la sesión y marca como modificado."""
-    request.session['carrito']  = carrito
-    request.session.modified    = True
+def _guardar_carrito(request, carrito):
+    request.session['carrito'] = carrito
+    request.session.modified = True
+
+
+def _leer_cantidad(request, default=1):
+    """Lee 'cantidad' del POST de forma segura, entre 1 y CANTIDAD_MAXIMA."""
+    try:
+        cantidad = int(request.POST.get('cantidad', default))
+    except (TypeError, ValueError):
+        cantidad = default
+    return max(1, min(cantidad, CANTIDAD_MAXIMA))
 
 
 def _redirigir_seguro(request, next_url):
-    """Redirige a next_url solo si es un destino del mismo sitio.
-
-    Evita open redirects: si la URL es externa o inválida, va al catálogo.
-    """
+    """Redirige solo a URLs del mismo sitio (evita open redirects)."""
     if next_url and url_has_allowed_host_and_scheme(
         next_url,
         allowed_hosts={request.get_host()},
@@ -99,28 +102,26 @@ def _redirigir_seguro(request, next_url):
     return redirect('catalogo:catalogo')
 
 
+# ── CARRITO ───────────────────────────────────────────────────────────────
+
 def ver_carrito(request):
-    """Muestra el contenido del carrito con el total calculado.
-
-    Convierte los precios de str a Decimal para el cálculo.
-    """
+    """Muestra el carrito con subtotales y total calculados."""
     carrito = _obtener_carrito(request)
-
     items = []
     total = Decimal('0.00')
 
     for prod_id, datos in carrito.items():
-        precio    = Decimal(datos['precio'])
-        cantidad  = int(datos['cantidad'])
-        subtotal  = precio * cantidad
-        total    += subtotal
+        precio = Decimal(datos['precio'])
+        cantidad = int(datos['cantidad'])
+        subtotal = precio * cantidad
+        total += subtotal
         items.append({
-            'prod_id':  prod_id,
-            'nombre':   datos['nombre'],
-            'precio':   precio,
+            'prod_id': prod_id,
+            'nombre': datos['nombre'],
+            'precio': precio,
             'cantidad': cantidad,
             'subtotal': subtotal,
-            'imagen':   datos.get('imagen'),
+            'imagen': datos.get('imagen'),
         })
 
     return render(request, 'catalogo/carrito.html', {
@@ -129,79 +130,59 @@ def ver_carrito(request):
     })
 
 
-def agregar_al_carrito(request, producto_id: int):
-    """Agrega un producto al carrito o incrementa su cantidad.
-
-    Solo acepta POST para proteger contra CSRF.
-    La cantidad puede enviarse como parámetro POST (default: 1).
-
-    Args:
-        producto_id: ID del producto a agregar.
-    """
-    if request.method != 'POST':
-        return redirect('catalogo:catalogo')
-
+@require_POST
+def agregar_al_carrito(request, producto_id):
+    """Agrega un producto o incrementa su cantidad. Solo POST."""
     producto = get_object_or_404(Producto, pk=producto_id, activo=True)
-    carrito  = _obtener_carrito(request)
-
-    clave    = str(producto_id)
-    cantidad = int(request.POST.get('cantidad', 1))
+    carrito = _obtener_carrito(request)
+    clave = str(producto_id)
+    cantidad = _leer_cantidad(request)
 
     if clave in carrito:
-        carrito[clave]['cantidad'] += cantidad
+        carrito[clave]['cantidad'] = min(
+            carrito[clave]['cantidad'] + cantidad, CANTIDAD_MAXIMA
+        )
     else:
         carrito[clave] = {
-            'nombre':   producto.nombre,
-            'precio':   str(producto.precio),   # str para JSON serializable
+            'nombre': producto.nombre,
+            'precio': str(producto.precio),
             'cantidad': cantidad,
-            'imagen':   producto.imagen.name if producto.imagen else None,
+            'imagen': producto.imagen.name if producto.imagen else None,
         }
 
     _guardar_carrito(request, carrito)
-    messages.success(
-        request,
-        f'"{producto.nombre}" agregado al carrito.'
-    )
+    messages.success(request, f'"{producto.nombre}" agregado al carrito.')
 
-    # Volver a la página anterior (catálogo, detalle de producto, etc.)
     next_url = request.POST.get('next') or request.META.get('HTTP_REFERER')
     return _redirigir_seguro(request, next_url)
 
 
-def remover_del_carrito(request, producto_id: int):
-    """Elimina un producto del carrito.
-
-    Solo acepta POST.
-    """
-    if request.method != 'POST':
-        return redirect('catalogo:carrito')
-
+@require_POST
+def remover_del_carrito(request, producto_id):
+    """Elimina un producto del carrito. Solo POST."""
     carrito = _obtener_carrito(request)
-    clave   = str(producto_id)
-
-    nombre = carrito.get(clave, {}).get('nombre', 'Producto')
-    carrito.pop(clave, None)
+    clave = str(producto_id)
+    nombre = carrito.pop(clave, {}).get('nombre', 'Producto')
     _guardar_carrito(request, carrito)
 
     messages.warning(request, f'"{nombre}" eliminado del carrito.')
     return redirect('catalogo:carrito')
 
 
-def actualizar_cantidad(request, producto_id: int):
-    """Actualiza la cantidad de un producto en el carrito.
+@require_POST
+def actualizar_cantidad(request, producto_id):
+    """Cambia la cantidad de un producto. Si es 0 o menos, lo elimina."""
+    carrito = _obtener_carrito(request)
+    clave = str(producto_id)
 
-    Solo acepta POST. Si la cantidad llega a 0 o menos, elimina el item.
-    """
-    if request.method != 'POST':
-        return redirect('catalogo:carrito')
-
-    carrito  = _obtener_carrito(request)
-    clave    = str(producto_id)
-    cantidad = int(request.POST.get('cantidad', 1))
+    try:
+        cantidad = int(request.POST.get('cantidad', 1))
+    except (TypeError, ValueError):
+        cantidad = 1
 
     if clave in carrito:
         if cantidad > 0:
-            carrito[clave]['cantidad'] = cantidad
+            carrito[clave]['cantidad'] = min(cantidad, CANTIDAD_MAXIMA)
         else:
             carrito.pop(clave)
 
@@ -209,135 +190,143 @@ def actualizar_cantidad(request, producto_id: int):
     return redirect('catalogo:carrito')
 
 
+@require_POST
 def vaciar_carrito(request):
-    """Elimina todos los productos del carrito."""
-    if request.method == 'POST':
-        _guardar_carrito(request, {})
-        messages.info(request, 'Carrito vaciado.')
+    """Vacía el carrito completo. Solo POST."""
+    _guardar_carrito(request, {})
+    messages.info(request, 'Carrito vaciado.')
     return redirect('catalogo:carrito')
 
 
-# ── CHECKOUT ────────────────────────────────────────────────────────────────
+# ── CHECKOUT ──────────────────────────────────────────────────────────────
 
 @login_required
 def checkout(request):
-    """Proceso de pago: muestra resumen y crea PaymentIntent de Stripe.
+    """Resumen del carrito (GET) y creación del pago en Stripe (POST).
 
-    GET:  Muestra resumen del carrito con IVA calculado.
-          No crea PaymentIntent (espera a POST).
-
-    POST: Valida carrito → crea Pedido con snapshot → crea PaymentIntent →
-          retorna client_secret al template para que Stripe.js
-          confirme el pago del lado del cliente.
-
-    Redirige a /catalogo/ si el carrito está vacío.
+    GET:  muestra el resumen con IVA. No crea nada en Stripe.
+    POST: crea Pedido + PaymentIntent y devuelve client_secret a Stripe.js.
     """
     carrito = _obtener_carrito(request)
     if not carrito:
         messages.warning(request, 'Tu carrito está vacío.')
         return redirect('catalogo:catalogo')
 
-    totales         = calcular_totales(carrito)
-    items           = armar_items(carrito)   # subtotal por línea
+    totales = calcular_totales(carrito)
+    items = armar_items(carrito)
     publishable_key = settings.STRIPE_PUBLISHABLE_KEY
 
     if request.method == 'POST':
         try:
-            # ── 1. Vincular usuario con Cliente del ERP ────────────────
             cliente = obtener_o_crear_cliente(request.user)
 
-            # ── 2. Crear el Pedido con snapshot del carrito ────────────
-            numero = generar_numero_pedido()
-
-            # Construir el snapshot: lista de dicts serializables
-            snapshot = [
-                {
-                    'producto_id': int(prod_id),
-                    'nombre':      datos['nombre'],
-                    'cantidad':    int(datos['cantidad']),
-                    'precio':      datos['precio'],   # ya es str
-                }
-                for prod_id, datos in carrito.items()
-            ]
-
             pedido = Pedido.objects.create(
-                numero_pedido   = numero,
-                cliente         = cliente,
-                estado          = 'pendiente',
-                total_pagado    = totales['total'],
-                items_snapshot  = snapshot,
+                numero_pedido=generar_numero_pedido(),
+                cliente=cliente,
+                estado=ESTADO_PENDIENTE,
+                total_pagado=totales['total'],
+                items_snapshot=[
+                    {
+                        'producto_id': int(prod_id),
+                        'nombre': datos['nombre'],
+                        'cantidad': int(datos['cantidad']),
+                        'precio': datos['precio'],
+                    }
+                    for prod_id, datos in carrito.items()
+                ],
             )
 
-            # ── 3. Crear PaymentIntent en Stripe ───────────────────────
-            # Monto en centavos (Stripe requiere entero)
-            monto_centavos = int(totales['total'] * 100)
+            # Stripe pide enteros en centavos
+            monto_centavos = int(
+                (totales['total'] * 100).quantize(Decimal('1'), ROUND_HALF_UP)
+            )
 
             intent = stripe.PaymentIntent.create(
-                amount          = monto_centavos,
-                currency        = 'mxn',
-                metadata        = {
-                    'pedido_id':  pedido.pk,
+                amount=monto_centavos,
+                currency='mxn',
+                metadata={
+                    'pedido_id': str(pedido.pk),
                     'pedido_num': pedido.numero_pedido,
-                    'cliente':    cliente.nombre,
+                    'cliente': cliente.nombre,
                 },
-                idempotency_key = f'pedido-{pedido.pk}',
+                idempotency_key=f'pedido-{pedido.pk}',
             )
 
-            # ── 4. Retornar client_secret al template ──────────────────
+            # Guardamos el último pedido para validarlo al volver de Stripe
+            request.session['ultimo_pedido_id'] = pedido.pk
+            request.session.modified = True
+
             return render(request, 'catalogo/checkout.html', {
-                'carrito':         carrito,
-                'items':           items,
-                'totales':         totales,
-                'pedido':          pedido,
-                'client_secret':   intent.client_secret,
+                'carrito': carrito,
+                'items': items,
+                'totales': totales,
+                'pedido': pedido,
+                'client_secret': intent.client_secret,
                 'publishable_key': publishable_key,
             })
 
         except stripe.error.StripeError as exc:
-            messages.error(
-                request,
-                f'Error al conectar con Stripe: {exc.user_message}'
-            )
+            messages.error(request, f'Error con Stripe: {exc.user_message}')
             return redirect('catalogo:pago_error')
 
         except Exception as exc:
-            messages.error(
-                request,
-                f'Error inesperado en el proceso de pago: {exc}'
-            )
+            messages.error(request, f'Error inesperado en el pago: {exc}')
             return redirect('catalogo:pago_error')
 
-    # GET — solo mostrar resumen (sin PaymentIntent)
     return render(request, 'catalogo/checkout.html', {
-        'carrito':         carrito,
-        'items':           items,
-        'totales':         totales,
-        'client_secret':   None,          # se genera en POST
+        'carrito': carrito,
+        'items': items,
+        'totales': totales,
+        'client_secret': None,
         'publishable_key': publishable_key,
     })
 
 
-def pago_exitoso(request, pedido_id: int):
-    """Vista de confirmación post-pago exitoso.
+@login_required
+def pago_exitoso(request, pedido_id):
+    """Confirma el pago al volver de Stripe.
 
-    Vacía el carrito de la sesión y muestra el número de pedido.
-    Stripe redirige aquí después de `stripe.confirmCardPayment` exitoso.
+    No basta con que la URL exista: se verifica en Stripe que el
+    PaymentIntent esté 'succeeded' y que pertenezca a este pedido.
+    Solo entonces se vacía el carrito y se marca el pedido como pagado.
     """
-    pedido = get_object_or_404(Pedido, pk=pedido_id)
+    if request.session.get('ultimo_pedido_id') != pedido_id:
+        messages.error(request, 'No encontramos ese pedido en tu sesión.')
+        return redirect('catalogo:catalogo')
 
-    # Vaciar el carrito al confirmar el pago
+    pedido = get_object_or_404(Pedido, pk=pedido_id)
+    payment_intent_id = request.GET.get('payment_intent')
+
+    if not payment_intent_id:
+        messages.error(request, 'Falta la confirmación del pago.')
+        return redirect('catalogo:pago_error')
+
+    try:
+        intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+    except stripe.error.StripeError as exc:
+        messages.error(request, f'No pudimos verificar el pago: {exc.user_message}')
+        return redirect('catalogo:pago_error')
+
+    pedido_en_intent = intent.metadata.get('pedido_id')
+    if intent.status != 'succeeded' or pedido_en_intent != str(pedido.pk):
+        messages.error(request, 'El pago no está confirmado.')
+        return redirect('catalogo:pago_error')
+
+    if pedido.estado != ESTADO_PAGADO:
+        pedido.estado = ESTADO_PAGADO
+        pedido.save(update_fields=['estado'])
+
     _guardar_carrito(request, {})
+    request.session.pop('ultimo_pedido_id', None)
+
     messages.success(
         request,
-        f'¡Pago exitoso! Tu pedido {pedido.numero_pedido} '
-        f'está confirmado. Total: ${pedido.total_pagado}'
+        f'¡Pago exitoso! Tu pedido {pedido.numero_pedido} está confirmado. '
+        f'Total: ${pedido.total_pagado}'
     )
-
-    return render(request, 'catalogo/pago_exitoso.html', {
-        'pedido': pedido,
-    })
+    return render(request, 'catalogo/pago_exitoso.html', {'pedido': pedido})
 
 
 def pago_error(request):
-    """Vista de error de pago — muestra mensaje y permite reintentar."""
+    """Muestra el error de pago y permite reintentar."""
     return render(request, 'catalogo/pago_error.html')

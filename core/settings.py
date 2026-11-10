@@ -10,14 +10,23 @@ env = environ.Env(DEBUG=(bool, True))
 environ.Env.read_env(BASE_DIR / '.env')
 
 SECRET_KEY = env('SECRET_KEY', default='dev-key-insegura-solo-para-desarrollo')
-DEBUG = env('DEBUG', default=True)
+DEBUG = env.bool('DEBUG', default=True)
+
+# En Render, RENDER_EXTERNAL_HOSTNAME se define automáticamente
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
+_render_host = env('RENDER_EXTERNAL_HOSTNAME', default=None)
+if _render_host:
+    ALLOWED_HOSTS.append(_render_host)
 
+CSRF_TRUSTED_ORIGINS = []
+if _render_host:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{_render_host}')
 
+# Render termina HTTPS en un proxy; Django necesita saberlo
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = False  # Render ya redirige a HTTPS
 
-# ── Apps instaladas ───────────────────────────────────────────────────────
-# core/settings.py — actualizar INSTALLED_APPS (terceros):
-# core/settings.py — actualizar INSTALLED_APPS:
 INSTALLED_APPS = [
     'jazzmin',
     'django.contrib.admin',
@@ -25,6 +34,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'whitenoise.runserver_nostatic',   # debe ir ANTES de staticfiles
     'django.contrib.staticfiles',
     'django.contrib.sites',
     # Terceros
@@ -33,8 +43,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'rest_framework',
     'rest_framework.authtoken',
-    'django_filters',              # ← nuevo (nombre de app es django_filters)
-    'whitenoise.runserver_nostatic',
+    'django_filters',
     # Apps del ERP
     'clientes',
     'proveedores',
@@ -42,13 +51,9 @@ INSTALLED_APPS = [
     'ventas',
     'reportes',
     'configuracion',
-    'catalogo',                    # ← nuevo
+    'catalogo',
     'core',
 ]
-
-
-
-
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -59,7 +64,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',   # ← agregar al final
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -76,12 +81,13 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                # Context processor del carrito — W13
-                'catalogo.context_processors.carrito_info',
+                'catalogo.context_processors.carrito_info',  # contador del carrito
             ],
         },
     },
 ]
+
+WSGI_APPLICATION = 'core.wsgi.application'
 
 # ── Base de datos ─────────────────────────────────────────────────────────
 DATABASES = {
@@ -99,12 +105,10 @@ USE_TZ = True
 
 # ── Archivos estáticos ────────────────────────────────────────────────────
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-# STATICFILES_DIRS ≠ STATIC_ROOT (error frecuente)
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'           # destino de collectstatic
+STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 
-# STATICFILES_STORAGE fue eliminado en Django 5.1+; ahora se usa STORAGES.
-# El manifiesto de WhiteNoise solo se usa en producción (requiere collectstatic)
+# En desarrollo no se usa el manifiesto de WhiteNoise
 if DEBUG or 'test' in sys.argv:
     _static_backend = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 else:
@@ -120,20 +124,30 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # ── Autenticación ─────────────────────────────────────────────────────────
-
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/productos/'
 LOGOUT_REDIRECT_URL = '/'
 
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
 
-# ── DRF ──────────────────────────────────────────────────────────────────
+# ── ALLAUTH (desarrollo académico) ────────────────────────────────────────
+ACCOUNT_LOGIN_METHODS = {'username'}
+ACCOUNT_EMAIL_REQUIRED = False
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_LOGOUT_ON_GET = True
+ACCOUNT_SESSION_REMEMBER = True
 
+# ── DJANGO SITES (requerido por allauth) ──────────────────────────────────
+SITE_ID = 1
 
-# core/settings.py — reemplazar la configuración REST_FRAMEWORK de W01:
+# ── DRF ───────────────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',   # para el navegador
-        'rest_framework.authentication.TokenAuthentication',     # para clientes externos
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
@@ -142,46 +156,39 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-    
-
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# ── JAZZMIN — Personalización del admin ───────────────────────────────────
+# ── STRIPE (pasarela de pago) ─────────────────────────────────────────────
+STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='sk_test_placeholder')
+STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='pk_test_placeholder')
+STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='whsec_placeholder')
+
+# ── JAZZMIN — Admin con estilo ────────────────────────────────────────────
 JAZZMIN_SETTINGS = {
-    # Identidad
     'site_title': 'ERP Django',
     'site_header': 'ERP UTEC Celaya',
-    'site_brand': '📦 ERP Django',
+    'site_brand': 'ERP Django',
     'welcome_sign': 'Bienvenido al Sistema ERP · UTEC Celaya',
     'copyright': 'MC. Román Fernando López González · UTEC Celaya',
-
     'site_icon': None,
-    'site_logo': None,    # ruta a logo en static/ (agregar en W11+)
+    'site_logo': None,
+    'use_google_fonts_cdn': False,
 
-    # Búsqueda global en el admin
     'search_model': ['clientes.Cliente', 'productos.Producto'],
 
-    # Menú superior
     'topmenu_links': [
         {'name': 'Inicio ERP', 'url': '/', 'new_window': False},
-        {'name': 'Productos',  'url': '/productos/'},
-        {'name': 'Clientes',   'url': '/clientes/'},
-        {'name': 'Ventas',     'url': '/ventas/'},
+        {'name': 'Productos', 'url': '/productos/'},
+        {'name': 'Clientes', 'url': '/clientes/'},
+        {'name': 'Ventas', 'url': '/ventas/'},
     ],
-
-    # Menú de usuario
     'usermenu_links': [
         {'name': 'Ver ERP', 'url': '/', 'new_window': False},
     ],
-
-    # Menú lateral
     'order_with_respect_to': [
         'clientes', 'proveedores', 'productos',
         'ventas', 'configuracion', 'auth',
     ],
-
-    # Iconos Font Awesome
     'icons': {
         'auth': 'fas fa-users-cog',
         'auth.user': 'fas fa-user',
@@ -197,16 +204,11 @@ JAZZMIN_SETTINGS = {
     },
     'default_icon_parents': 'fas fa-folder',
     'default_icon_children': 'fas fa-circle',
-
-    # Apariencia
     'related_modal_active': True,
-    'custom_css': 'erp_custom.css',   # archivo en static/
     'show_sidebar': True,
     'navigation_expanded': True,
     'hide_apps': [],
     'hide_models': [],
-
-    # UI
     'changeform_format': 'horizontal_tabs',
     'language_chooser': False,
 }
@@ -220,10 +222,10 @@ JAZZMIN_UI_TWEAKS = {
     'accent': 'accent-navy',
     'navbar': 'navbar-dark',
     'no_navbar_border': False,
-    'navbar_fixed': True,
+    'navbar_fixed': False,
     'layout_boxed': False,
     'footer_fixed': False,
-    'sidebar_fixed': True,
+    'sidebar_fixed': False,
     'sidebar': 'sidebar-dark-navy',
     'sidebar_nav_small_text': False,
     'sidebar_disable_expand': False,
@@ -231,7 +233,7 @@ JAZZMIN_UI_TWEAKS = {
     'sidebar_nav_compact_style': False,
     'sidebar_nav_legacy_style': False,
     'sidebar_nav_flat_style': False,
-    'theme': 'default',
+    'theme': 'darkly',   # cambia a 'flatly' si prefieres claro
     'button_classes': {
         'primary': 'btn-primary',
         'secondary': 'btn-secondary',
@@ -241,33 +243,3 @@ JAZZMIN_UI_TWEAKS = {
         'success': 'btn-success',
     },
 }
-
-# ── DJANGO SITES (requerido por allauth) ──────────────────────────────────
-SITE_ID = 1
-
-# ── AUTHENTICATION BACKENDS ───────────────────────────────────────────────
-AUTHENTICATION_BACKENDS = [
-    # Backend estándar de Django (username + password en admin)
-    'django.contrib.auth.backends.ModelBackend',
-    # Backend de allauth (permite login por email también)
-    'allauth.account.auth_backends.AuthenticationBackend',
-]
-
-# ── ALLAUTH: configuración para desarrollo académico ──────────────────────
-ACCOUNT_LOGIN_METHODS          = {'username'}   # login por username
-ACCOUNT_EMAIL_REQUIRED         = False          # no obligar correo
-ACCOUNT_EMAIL_VERIFICATION     = 'none'         # no enviar email de verificación
-ACCOUNT_LOGOUT_ON_GET          = True           # logout sin confirmar (dev)
-ACCOUNT_SESSION_REMEMBER       = True           # recordar sesión
-
-# LOGIN_URL y LOGIN_REDIRECT_URL ya definidos en W01:
-# LOGIN_URL           = '/accounts/login/'
-# LOGIN_REDIRECT_URL  = '/productos/'
-LOGOUT_REDIRECT_URL = '/'
-
-# core/settings.py — agregar al final (antes de JAZZMIN_SETTINGS):
-
-# ── STRIPE (Pasarela de pago) ──────────────────────────────────────────────
-STRIPE_SECRET_KEY     = env('STRIPE_SECRET_KEY',     default='sk_test_placeholder')
-STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='pk_test_placeholder')
-STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='whsec_placeholder')
