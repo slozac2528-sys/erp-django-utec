@@ -19,21 +19,6 @@ api_urlpatterns = (
     ventas_api
 )
 
-urlpatterns = [
-    path('admin/',      admin.site.urls),
-    path('',            views.bienvenida,             name='inicio'),
-    path('accounts/',   include('allauth.urls')),
-    # API REST
-    path('api/',        include((api_urlpatterns, 'api'))),
-    path('api/auth/token/', obtain_auth_token, name='api_token'),
-    # Apps del ERP (interfaz web)
-    path('clientes/',    include('clientes.urls',    namespace='clientes')),
-    path('proveedores/', include('proveedores.urls', namespace='proveedores')),
-    path('productos/',   include('productos.urls',   namespace='productos')),
-    path('ventas/',      include('ventas.urls',       namespace='ventas')),
-    path('reportes/',    include('reportes.urls',     namespace='reportes')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
 # core/urls.py — agregar la ruta del catálogo:
 urlpatterns = [
     path('admin/',      admin.site.urls),
@@ -51,6 +36,3 @@ urlpatterns = [
     path('ventas/',      include('ventas.urls',       namespace='ventas')),
     path('reportes/',    include('reportes.urls',     namespace='reportes')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-
-path('catalogo/', include('catalogo.urls', namespace='catalogo')),
