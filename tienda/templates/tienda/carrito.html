@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Carrito de compras</h2>
+
+{% if items %}
+<table>
+  <thead>
+    <tr>
+      <th>Producto</th>
+      <th>Precio</th>
+      <th>Cantidad</th>
+      <th>Subtotal</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for producto, cantidad, subtotal in items %}
+    <tr>
+      <td>{{ producto.nombre }}</td>
+      <td>${{ producto.precio }}</td>
+      <td>{{ cantidad }}</td>
+      <td>${{ subtotal|floatformat:2 }}</td>
+      <td>
+        <a href="{% url 'tienda:quitar' producto.id %}">Quitar</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3>Total: ${{ total|floatformat:2 }}</h3>
+
+<a href="{% url 'tienda:catalogo' %}">Seguir comprando</a>
+<a href="{% url 'tienda:checkout' %}">Finalizar compra</a>
+
+{% else %}
+<p>Tu carrito está vacío.</p>
+<a href="{% url 'tienda:catalogo' %}">Ir a la tienda</a>
+{% endif %}
+{% endblock %}
