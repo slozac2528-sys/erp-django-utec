@@ -1,4 +1,3 @@
-import mimetypes
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Optional
@@ -28,13 +27,14 @@ def _ruta_local(url_path: str) -> Optional[Path]:
 
     if url_path.startswith(static_prefix):
         relativa = url_path[len(static_prefix):]
-        candidata = Path(settings.STATIC_ROOT) / relativa
-        if candidata.is_file():
-            return candidata
+        if settings.STATIC_ROOT:
+            candidata = Path(settings.STATIC_ROOT) / relativa
+            if candidata.is_file():
+                return candidata
         encontrada = finders.find(relativa)  # útil en desarrollo, sin collectstatic
         return Path(encontrada) if encontrada else None
 
-    if url_path.startswith(media_prefix):
+    if url_path.startswith(media_prefix) and settings.MEDIA_ROOT:
         raiz = Path(settings.MEDIA_ROOT).resolve()
         candidata = (raiz / url_path[len(media_prefix):]).resolve()
         # Evita salir de MEDIA_ROOT con rutas tipo ../
@@ -43,28 +43,18 @@ def _ruta_local(url_path: str) -> Optional[Path]:
     return None
 
 
-def _es_host_propio(hostname: str) -> bool:
-    """True si el host apunta a este mismo servidor."""
-    permitidos = ["localhost", "127.0.0.1", *settings.ALLOWED_HOSTS]
-    return hostname in permitidos or "*" in permitidos
+def _link_callback(uri: str, rel: str = "") -> str:
+    """link_callback de xhtml2pdf: resuelve /static/ y /media/ a rutas en disco.
 
+    Si no es un recurso local conocido, devuelve la URI sin cambios.
+    """
+    if uri.startswith("data:"):
+        return uri
 
-def _url_fetcher_local(url: str, timeout: int = 10, ssl_context=None):
-    """url_fetcher de WeasyPrint que lee /static/ y /media/ desde disco."""
-    import weasyprint  # importación diferida: solo se necesita al generar PDF
-
-    parsed = urlparse(url)
-    if parsed.scheme in ("http", "https", "file"):
-        ruta = _ruta_local(unquote(parsed.path))
-        if ruta is not None:
-            return {
-                "string": ruta.read_bytes(),
-                "mime_type": mimetypes.guess_type(ruta.name)[0],
-                "filename": ruta.name,
-            }
-        if parsed.scheme == "file" or _es_host_propio(parsed.hostname or ""):
-            raise FileNotFoundError(url)
-    return weasyprint.default_url_fetcher(url, timeout=timeout, ssl_context=ssl_context)
+    ruta = _ruta_local(unquote(urlparse(uri).path))
+    if ruta is not None:
+        return str(ruta)
+    return uri
 
 
 def calcular_totales(subtotal, iva_porcentaje) -> dict:
@@ -77,8 +67,8 @@ def calcular_totales(subtotal, iva_porcentaje) -> dict:
 
 @login_required
 def venta_pdf(request, venta_id: int) -> HttpResponse:
-    """Genera y descarga la factura de una venta en formato PDF (WeasyPrint)."""
-    import weasyprint  # importación diferida
+    """Genera y descarga la factura de una venta en formato PDF (xhtml2pdf)."""
+    from xhtml2pdf import pisa  # importación diferida: solo se necesita al generar PDF
 
     venta = get_object_or_404(
         Venta.objects.select_related("cliente").prefetch_related(
@@ -96,16 +86,19 @@ def venta_pdf(request, venta_id: int) -> HttpResponse:
 
     html_string = render_to_string("ventas/factura_pdf.html", context, request=request)
 
-    pdf_bytes = weasyprint.HTML(
-        string=html_string,
-        base_url=request.build_absolute_uri("/"),
-        url_fetcher=_url_fetcher_local,
-    ).write_pdf()
-
-    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = (
         f'attachment; filename="factura_{venta.pk:05d}.pdf"'
     )
+
+    resultado = pisa.CreatePDF(
+        src=html_string,
+        dest=response,
+        encoding="UTF-8",
+        link_callback=_link_callback,
+    )
+    if resultado.err:
+        return HttpResponse("Error al generar el PDF de la factura.", status=500)
     return response
 
 
