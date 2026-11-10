@@ -216,7 +216,8 @@ def vaciar_carrito(request):
         messages.info(request, 'Carrito vaciado.')
     return redirect('catalogo:carrito')
 
-# catalogo/views.py — agregar al final:
+
+# ── CHECKOUT ────────────────────────────────────────────────────────────────
 
 @login_required
 def checkout(request):
@@ -225,7 +226,7 @@ def checkout(request):
     GET:  Muestra resumen del carrito con IVA calculado.
           No crea PaymentIntent (espera a POST).
 
-    POST: Valida carrito → crea Pedido → crea PaymentIntent →
+    POST: Valida carrito → crea Pedido con snapshot → crea PaymentIntent →
           retorna client_secret al template para que Stripe.js
           confirme el pago del lado del cliente.
 
@@ -245,13 +246,26 @@ def checkout(request):
             # ── 1. Vincular usuario con Cliente del ERP ────────────────
             cliente = obtener_o_crear_cliente(request.user)
 
-            # ── 2. Crear el Pedido en estado "pendiente" ───────────────
+            # ── 2. Crear el Pedido con snapshot del carrito ────────────
             numero = generar_numero_pedido()
+
+            # Construir el snapshot: lista de dicts serializables
+            snapshot = [
+                {
+                    'producto_id': int(prod_id),
+                    'nombre':      datos['nombre'],
+                    'cantidad':    int(datos['cantidad']),
+                    'precio':      datos['precio'],   # ya es str
+                }
+                for prod_id, datos in carrito.items()
+            ]
+
             pedido = Pedido.objects.create(
-                numero_pedido = numero,
-                cliente       = cliente,
-                estado        = 'pendiente',
-                total_pagado  = totales['total'],
+                numero_pedido   = numero,
+                cliente         = cliente,
+                estado          = 'pendiente',
+                total_pagado    = totales['total'],
+                items_snapshot  = snapshot,
             )
 
             # ── 3. Crear PaymentIntent en Stripe ───────────────────────
@@ -309,7 +323,6 @@ def pago_exitoso(request, pedido_id: int):
     Vacía el carrito de la sesión y muestra el número de pedido.
     Stripe redirige aquí después de `stripe.confirmCardPayment` exitoso.
     """
-    from django.shortcuts import get_object_or_404
     pedido = get_object_or_404(Pedido, pk=pedido_id)
 
     # Vaciar el carrito al confirmar el pago
