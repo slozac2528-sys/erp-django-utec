@@ -201,8 +201,7 @@
             btn.textContent = '🔐 Confirmar pago de ${{ totales.total }}';
         } else if (paymentIntent.status === 'succeeded') {
             // Redirigir a la vista de éxito
-            const pedidoId = '{{ pedido.pk }}';
-            window.location.href = `/catalogo/pago-exitoso/${pedidoId}/`;
+            window.location.href = "{% url 'catalogo:pago_exitoso' pedido.pk %}";   // ← CORRECCIÓN
         }
     });
 })();
