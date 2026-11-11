@@ -288,7 +288,8 @@ def pago_exitoso(request, pedido_id):
 
     No basta con que la URL exista: se verifica en Stripe que el
     PaymentIntent esté 'succeeded' y que pertenezca a este pedido.
-    Solo entonces se vacía el carrito y se marca el pedido como pagado.
+    El estado del pedido y el stock los actualiza el webhook
+    (única fuente de verdad), no esta vista.
     """
     if request.session.get('ultimo_pedido_id') != pedido_id:
         messages.error(request, 'No encontramos ese pedido en tu sesión.')
@@ -311,10 +312,6 @@ def pago_exitoso(request, pedido_id):
     if intent.status != 'succeeded' or pedido_en_intent != str(pedido.pk):
         messages.error(request, 'El pago no está confirmado.')
         return redirect('catalogo:pago_error')
-
-    if pedido.estado != ESTADO_PAGADO:
-        pedido.estado = ESTADO_PAGADO
-        pedido.save(update_fields=['estado'])
 
     _guardar_carrito(request, {})
     request.session.pop('ultimo_pedido_id', None)
