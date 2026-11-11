@@ -64,6 +64,11 @@ def stripe_webhook(request) -> HttpResponse:
         logger.warning('Webhook: firma inválida — posible ataque.')
         return HttpResponse('Firma inválida.', status=400)
 
+    # stripe >= 15 devuelve StripeObject, que ya NO es un dict          # ← CORRECCIÓN
+    # (no tiene .get()). Lo convertimos a dict nativo de Python.        # ← CORRECCIÓN
+    if hasattr(event, 'to_dict'):                                       # ← CORRECCIÓN
+        event = event.to_dict()                                         # ← CORRECCIÓN
+
     # ── 2. Despachar por tipo de evento ────────────────────────────────────
     tipo = event['type']
     logger.info(f'Webhook recibido: {tipo}')
