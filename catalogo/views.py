@@ -1,3 +1,4 @@
+
 # catalogo/views.py
 """Vistas del módulo de catálogo y carrito (W13).
 
@@ -252,8 +253,9 @@ def checkout(request):
                 idempotency_key=f'pedido-{pedido.pk}',
             )
 
-            # Guardamos el último pedido para validarlo al volver de Stripe
+            # Guardamos el último pedido e intent para validarlos al volver
             request.session['ultimo_pedido_id'] = pedido.pk
+            request.session['ultimo_intent_id'] = intent.id
             request.session.modified = True
 
             return render(request, 'catalogo/checkout.html', {
@@ -296,25 +298,30 @@ def pago_exitoso(request, pedido_id):
         return redirect('catalogo:catalogo')
 
     pedido = get_object_or_404(Pedido, pk=pedido_id)
-    payment_intent_id = request.GET.get('payment_intent')
+    payment_intent_id = (
+        request.GET.get('payment_intent')
+        or request.session.get('ultimo_intent_id')
+    )
 
     if not payment_intent_id:
         messages.error(request, 'Falta la confirmación del pago.')
         return redirect('catalogo:pago_error')
 
     try:
-        intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+        # stripe-python >= 15: StripeObject no es dict, se convierte
+        intent = stripe.PaymentIntent.retrieve(payment_intent_id).to_dict()
     except stripe.error.StripeError as exc:
         messages.error(request, f'No pudimos verificar el pago: {exc.user_message}')
         return redirect('catalogo:pago_error')
 
-    pedido_en_intent = intent.metadata.get('pedido_id')
-    if intent.status != 'succeeded' or pedido_en_intent != str(pedido.pk):
+    pedido_en_intent = (intent.get('metadata') or {}).get('pedido_id')
+    if intent.get('status') != 'succeeded' or pedido_en_intent != str(pedido.pk):
         messages.error(request, 'El pago no está confirmado.')
         return redirect('catalogo:pago_error')
 
     _guardar_carrito(request, {})
     request.session.pop('ultimo_pedido_id', None)
+    request.session.pop('ultimo_intent_id', None)
 
     messages.success(
         request,
