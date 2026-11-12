@@ -1,4 +1,3 @@
-# catalogo/views.py
 """Vistas del módulo de catálogo y carrito (W13).
 
 El catálogo es público. El carrito vive en la sesión de Django con esta forma:
@@ -13,6 +12,7 @@ El catálogo es público. El carrito vive en la sesión de Django con esta forma
     }
 """
 import logging
+import uuid  # CAMBIO: para generar claves de idempotencia únicas por intento
 from decimal import Decimal, ROUND_HALF_UP
 
 import stripe
@@ -269,7 +269,9 @@ def checkout(request):
                         'pedido_num': pedido.numero_pedido,
                         'cliente': cliente.nombre,
                     },
-                    idempotency_key=f'pedido-{pedido.pk}',
+                    # CAMBIO: clave única por intento. Ya no depende del pk,
+                    # que SQLite puede reutilizar tras un rollback.
+                    idempotency_key=f'checkout-{uuid.uuid4()}',
                 )
 
             # Guardamos el último pedido e intent para validarlos al volver
