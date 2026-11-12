@@ -260,7 +260,10 @@ def checkout(request):
                 intent = stripe.PaymentIntent.create(
                     amount=monto_centavos,
                     currency='mxn',
-                    payment_method_types=['card'],  # coincide con el Card Element
+                    automatic_payment_methods={
+                        'enabled': True,
+                        'allow_redirects': 'never',  # solo tarjeta, sin redirecciones
+                    },
                     metadata={
                         'pedido_id': str(pedido.pk),
                         'pedido_num': pedido.numero_pedido,
