@@ -150,6 +150,7 @@ def _manejar_pago_fallido(payment_intent: dict) -> None:
         )
 
 
+
 def _extraer_pedido_id(payment_intent: dict) -> int | None:
     """Extrae el pedido_id del metadata del PaymentIntent.
 
@@ -159,7 +160,10 @@ def _extraer_pedido_id(payment_intent: dict) -> int | None:
     Returns:
         int con el ID del pedido, o None si no está en el metadata.
     """
-    metadata  = payment_intent.get('metadata', {})
+    if hasattr(payment_intent, 'to_dict'):
+        payment_intent = payment_intent.to_dict()
+
+    metadata = payment_intent.get('metadata', {})
     pedido_id = metadata.get('pedido_id')
 
     if not pedido_id:

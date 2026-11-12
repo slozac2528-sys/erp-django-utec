@@ -1,4 +1,3 @@
-
 # catalogo/views.py
 """Vistas del módulo de catálogo y carrito (W13).
 
@@ -13,12 +12,14 @@ El catálogo es público. El carrito vive en la sesión de Django con esta forma
         },
     }
 """
+import logging
 from decimal import Decimal, ROUND_HALF_UP
 
 import stripe
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
@@ -34,6 +35,8 @@ from .checkout_utils import (
     obtener_o_crear_cliente,
 )
 from .filters import ProductoFilter
+
+logger = logging.getLogger(__name__)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -215,43 +218,56 @@ def checkout(request):
 
     totales = calcular_totales(carrito)
     items = armar_items(carrito)
-    publishable_key = settings.STRIPE_PUBLISHABLE_KEY
+    publishable_key = getattr(settings, 'STRIPE_PUBLISHABLE_KEY', '') or ''
 
     if request.method == 'POST':
+        # Falla temprano y con mensaje claro si faltan las claves en Render
+        if not publishable_key or not getattr(settings, 'STRIPE_SECRET_KEY', ''):
+            logger.error('Faltan STRIPE_PUBLISHABLE_KEY / STRIPE_SECRET_KEY.')
+            messages.error(
+                request,
+                'El pago no está configurado (faltan las claves de Stripe).'
+            )
+            return redirect('catalogo:pago_error')
+
         try:
-            cliente = obtener_o_crear_cliente(request.user)
+            # atomic: si Stripe falla, el Pedido se revierte y no quedan
+            # pedidos "pendiente" huérfanos.
+            with transaction.atomic():
+                cliente = obtener_o_crear_cliente(request.user)
 
-            pedido = Pedido.objects.create(
-                numero_pedido=generar_numero_pedido(),
-                cliente=cliente,
-                estado=ESTADO_PENDIENTE,
-                total_pagado=totales['total'],
-                items_snapshot=[
-                    {
-                        'producto_id': int(prod_id),
-                        'nombre': datos['nombre'],
-                        'cantidad': int(datos['cantidad']),
-                        'precio': datos['precio'],
-                    }
-                    for prod_id, datos in carrito.items()
-                ],
-            )
+                pedido = Pedido.objects.create(
+                    numero_pedido=generar_numero_pedido(),
+                    cliente=cliente,
+                    estado=ESTADO_PENDIENTE,
+                    total_pagado=totales['total'],
+                    items_snapshot=[
+                        {
+                            'producto_id': int(prod_id),
+                            'nombre': datos['nombre'],
+                            'cantidad': int(datos['cantidad']),
+                            'precio': datos['precio'],
+                        }
+                        for prod_id, datos in carrito.items()
+                    ],
+                )
 
-            # Stripe pide enteros en centavos
-            monto_centavos = int(
-                (totales['total'] * 100).quantize(Decimal('1'), ROUND_HALF_UP)
-            )
+                # Stripe pide enteros en centavos
+                monto_centavos = int(
+                    (totales['total'] * 100).quantize(Decimal('1'), ROUND_HALF_UP)
+                )
 
-            intent = stripe.PaymentIntent.create(
-                amount=monto_centavos,
-                currency='mxn',
-                metadata={
-                    'pedido_id': str(pedido.pk),
-                    'pedido_num': pedido.numero_pedido,
-                    'cliente': cliente.nombre,
-                },
-                idempotency_key=f'pedido-{pedido.pk}',
-            )
+                intent = stripe.PaymentIntent.create(
+                    amount=monto_centavos,
+                    currency='mxn',
+                    payment_method_types=['card'],  # coincide con el Card Element
+                    metadata={
+                        'pedido_id': str(pedido.pk),
+                        'pedido_num': pedido.numero_pedido,
+                        'cliente': cliente.nombre,
+                    },
+                    idempotency_key=f'pedido-{pedido.pk}',
+                )
 
             # Guardamos el último pedido e intent para validarlos al volver
             request.session['ultimo_pedido_id'] = pedido.pk
@@ -267,12 +283,20 @@ def checkout(request):
                 'publishable_key': publishable_key,
             })
 
-        except stripe.error.StripeError as exc:
-            messages.error(request, f'Error con Stripe: {exc.user_message}')
+        except stripe.StripeError as exc:
+            logger.exception('Error de Stripe en checkout')
+            messages.error(
+                request,
+                f'Error con Stripe: {exc.user_message or "intenta de nuevo."}'
+            )
             return redirect('catalogo:pago_error')
 
-        except Exception as exc:
-            messages.error(request, f'Error inesperado en el pago: {exc}')
+        except Exception:
+            logger.exception('Error inesperado en checkout')
+            messages.error(
+                request,
+                'Ocurrió un error inesperado al preparar el pago.'
+            )
             return redirect('catalogo:pago_error')
 
     return render(request, 'catalogo/checkout.html', {
@@ -310,8 +334,12 @@ def pago_exitoso(request, pedido_id):
     try:
         # stripe-python >= 15: StripeObject no es dict, se convierte
         intent = stripe.PaymentIntent.retrieve(payment_intent_id).to_dict()
-    except stripe.error.StripeError as exc:
-        messages.error(request, f'No pudimos verificar el pago: {exc.user_message}')
+    except stripe.StripeError as exc:
+        logger.exception('Error al verificar el PaymentIntent')
+        messages.error(
+            request,
+            f'No pudimos verificar el pago: {exc.user_message or "intenta de nuevo."}'
+        )
         return redirect('catalogo:pago_error')
 
     pedido_en_intent = (intent.get('metadata') or {}).get('pedido_id')

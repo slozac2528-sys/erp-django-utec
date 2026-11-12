@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Checkout · Proceso de pago{% endblock %}
 
-{% block extra_css %}
+{% block content %}
 <style>
     /* Estilos para el Card Element de Stripe */
     #card-element {
@@ -9,6 +9,7 @@
         border: 1.5px solid var(--clr-border);
         border-radius: 8px;
         padding: .75rem 1rem;
+        min-height: 44px;
         transition: border-color .2s;
     }
     #card-element.StripeElement--focus {
@@ -29,9 +30,7 @@
         cursor: not-allowed;
     }
 </style>
-{% endblock %}
 
-{% block content %}
 <div class="erp-page-title">
     <h2>💳 Proceso de pago</h2>
     <a href="{% url 'catalogo:carrito' %}"
@@ -49,8 +48,7 @@
                 <tr>
                     <td style="padding:.4rem 0;font-size:.9rem;">
                         {{ item.nombre }}
-                        <span style="color:var(--clr-muted);
-                                     font-size:.82rem;">
+                        <span style="color:var(--clr-muted);font-size:.82rem;">
                             × {{ item.cantidad }}
                         </span>
                     </td>
@@ -61,22 +59,18 @@
                 </tr>
                 {% endfor %}
                 <tr style="border-top:1px solid var(--clr-border);">
-                    <td style="padding:.5rem 0;color:var(--clr-muted);
-                               font-size:.88rem;">
+                    <td style="padding:.5rem 0;color:var(--clr-muted);font-size:.88rem;">
                         Subtotal
                     </td>
-                    <td style="text-align:right;color:var(--clr-muted);
-                               font-size:.88rem;">
+                    <td style="text-align:right;color:var(--clr-muted);font-size:.88rem;">
                         ${{ totales.subtotal }}
                     </td>
                 </tr>
                 <tr>
-                    <td style="padding:.3rem 0;color:var(--clr-muted);
-                               font-size:.88rem;">
+                    <td style="padding:.3rem 0;color:var(--clr-muted);font-size:.88rem;">
                         IVA ({{ totales.iva_pct }}%)
                     </td>
-                    <td style="text-align:right;color:var(--clr-muted);
-                               font-size:.88rem;">
+                    <td style="text-align:right;color:var(--clr-muted);font-size:.88rem;">
                         ${{ totales.iva_monto }}
                     </td>
                 </tr>
@@ -108,7 +102,6 @@
             <div class="erp-card-header">🔒 Datos de pago</div>
 
             {% if client_secret %}
-            <!-- Formulario de tarjeta con Stripe.js -->
             <p style="color:var(--clr-muted);font-size:.85rem;margin-bottom:1rem;">
                 Tus datos de pago son procesados de forma segura por Stripe.
                 Nunca pasan por nuestros servidores.
@@ -120,7 +113,7 @@
                 <div id="card-errors" role="alert"></div>
             </div>
 
-            <button id="submit-btn" class="btn-erp-gold"
+            <button id="submit-btn" type="button" class="btn-erp-gold"
                     style="width:100%;padding:.6rem;font-size:1rem;">
                 🔐 Confirmar pago de ${{ totales.total }}
             </button>
@@ -132,7 +125,6 @@
             </p>
 
             {% else %}
-            <!-- GET: iniciar proceso con POST -->
             <p style="margin-bottom:1.5rem;color:var(--clr-muted);">
                 Haz clic en "Proceder al pago" para generar
                 tu pedido e introducir los datos de tu tarjeta.
@@ -149,20 +141,36 @@
     </div>
 
 </div>
-{% endblock %}
 
-{% block extra_js %}
 {% if client_secret %}
+{# El script va DENTRO de content para no depender del nombre del bloque de base.html #}
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 (function () {
     'use strict';
 
-    const stripe     = Stripe('{{ publishable_key }}');
-    const elements   = stripe.elements();
-    const clientSecret = '{{ client_secret }}';
+    const errorDiv       = document.getElementById('card-errors');
+    const btn            = document.getElementById('submit-btn');
+    const publishableKey = '{{ publishable_key|default:"" }}';
+    const clientSecret   = '{{ client_secret }}';
+    const successUrl     = "{% if pedido %}{% url 'catalogo:pago_exitoso' pedido.pk %}{% endif %}";
+    const btnLabel       = '🔐 Confirmar pago de ${{ totales.total }}';
 
-    // Crear el Card Element con estilos Fable 5 AzulERP
+    // Diagnóstico visible en pantalla (no solo en consola)
+    if (typeof Stripe === 'undefined') {
+        errorDiv.textContent = 'No se pudo cargar Stripe.js (revisa tu conexión o bloqueadores).';
+        btn.disabled = true;
+        return;
+    }
+    if (!publishableKey) {
+        errorDiv.textContent = 'Falta la clave pública de Stripe (publishable_key). Revisa las variables de entorno en Render y el contexto del view.';
+        btn.disabled = true;
+        return;
+    }
+
+    const stripe   = Stripe(publishableKey);
+    const elements = stripe.elements();
+
     const card = elements.create('card', {
         style: {
             base: {
@@ -177,17 +185,13 @@
     });
     card.mount('#card-element');
 
-    // Mostrar errores en tiempo real (p. ej. número inválido)
     card.on('change', function (event) {
-        const errorDiv = document.getElementById('card-errors');
         errorDiv.textContent = event.error ? event.error.message : '';
     });
 
-    // Manejar el submit del botón de pago
-    const btn = document.getElementById('submit-btn');
     btn.addEventListener('click', async function () {
-        btn.disabled     = true;
-        btn.textContent  = '⏳ Procesando…';
+        btn.disabled    = true;
+        btn.textContent = '⏳ Procesando…';
 
         const { error, paymentIntent } = await stripe.confirmCardPayment(
             clientSecret,
@@ -195,13 +199,15 @@
         );
 
         if (error) {
-            // Mostrar el error y habilitar el botón de nuevo
-            document.getElementById('card-errors').textContent = error.message;
+            errorDiv.textContent = error.message;
             btn.disabled    = false;
-            btn.textContent = '🔐 Confirmar pago de ${{ totales.total }}';
-        } else if (paymentIntent.status === 'succeeded') {
-            // Redirigir a la vista de éxito
-            window.location.href = "{% url 'catalogo:pago_exitoso' pedido.pk %}";   // ← CORRECCIÓN
+            btn.textContent = btnLabel;
+        } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+            window.location.href = successUrl;
+        } else {
+            errorDiv.textContent = 'Estado del pago: ' + (paymentIntent ? paymentIntent.status : 'desconocido');
+            btn.disabled    = false;
+            btn.textContent = btnLabel;
         }
     });
 })();
