@@ -2,8 +2,8 @@
 {% block title %}Checkout · Proceso de pago{% endblock %}
 
 {% block content %}
+<!-- checkout-v2 -->
 <style>
-    /* Estilos para el Card Element de Stripe */
     #card-element {
         background: var(--clr-surface);
         border: 1.5px solid var(--clr-border);
@@ -143,73 +143,91 @@
 </div>
 
 {% if client_secret %}
-{# El script va DENTRO de content para no depender del nombre del bloque de base.html #}
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 (function () {
     'use strict';
 
-    const errorDiv       = document.getElementById('card-errors');
-    const btn            = document.getElementById('submit-btn');
-    const publishableKey = '{{ publishable_key|default:"" }}';
-    const clientSecret   = '{{ client_secret }}';
-    const successUrl     = "{% if pedido %}{% url 'catalogo:pago_exitoso' pedido.pk %}{% endif %}";
-    const btnLabel       = '🔐 Confirmar pago de ${{ totales.total }}';
+    const errorDiv = document.getElementById('card-errors');
+    const btn      = document.getElementById('submit-btn');
 
-    // Diagnóstico visible en pantalla (no solo en consola)
-    if (typeof Stripe === 'undefined') {
-        errorDiv.textContent = 'No se pudo cargar Stripe.js (revisa tu conexión o bloqueadores).';
+    function fallar(msg) {
+        errorDiv.textContent = msg;
         btn.disabled = true;
-        return;
-    }
-    if (!publishableKey) {
-        errorDiv.textContent = 'Falta la clave pública de Stripe (publishable_key). Revisa las variables de entorno en Render y el contexto del view.';
-        btn.disabled = true;
-        return;
     }
 
-    const stripe   = Stripe(publishableKey);
-    const elements = stripe.elements();
+    try {
+        const publishableKey = '{{ publishable_key|default:"" }}'.trim();
+        const clientSecret   = '{{ client_secret }}';
+        const successUrl     = "{% if pedido %}{% url 'catalogo:pago_exitoso' pedido.pk %}{% endif %}";
+        const btnLabel       = '🔐 Confirmar pago de ${{ totales.total }}';
 
-    const card = elements.create('card', {
-        style: {
-            base: {
-                fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                fontSize: '15px',
-                color: getComputedStyle(document.documentElement)
-                            .getPropertyValue('--clr-text').trim() || '#1A1A2E',
-                '::placeholder': { color: '#8AA0B8' },
-            },
-            invalid: { color: '#C0392B', iconColor: '#C0392B' },
-        },
-    });
-    card.mount('#card-element');
-
-    card.on('change', function (event) {
-        errorDiv.textContent = event.error ? event.error.message : '';
-    });
-
-    btn.addEventListener('click', async function () {
-        btn.disabled    = true;
-        btn.textContent = '⏳ Procesando…';
-
-        const { error, paymentIntent } = await stripe.confirmCardPayment(
-            clientSecret,
-            { payment_method: { card: card } }
-        );
-
-        if (error) {
-            errorDiv.textContent = error.message;
-            btn.disabled    = false;
-            btn.textContent = btnLabel;
-        } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-            window.location.href = successUrl;
-        } else {
-            errorDiv.textContent = 'Estado del pago: ' + (paymentIntent ? paymentIntent.status : 'desconocido');
-            btn.disabled    = false;
-            btn.textContent = btnLabel;
+        if (typeof Stripe === 'undefined') {
+            fallar('No se pudo cargar Stripe.js (revisa tu conexión o bloqueadores).');
+            return;
         }
-    });
+        if (!publishableKey) {
+            fallar('Falta la clave pública de Stripe (STRIPE_PUBLISHABLE_KEY). Revisa las variables de entorno en Render.');
+            return;
+        }
+        if (publishableKey.indexOf('pk_') !== 0) {
+            fallar('La clave pública debe empezar con "pk_". Revisa que no hayas puesto la clave secreta (sk_) ni comillas.');
+            return;
+        }
+
+        const stripe   = Stripe(publishableKey);
+        const elements = stripe.elements();
+
+        const card = elements.create('card', {
+            style: {
+                base: {
+                    fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                    fontSize: '15px',
+                    color: getComputedStyle(document.documentElement)
+                                .getPropertyValue('--clr-text').trim() || '#1A1A2E',
+                    '::placeholder': { color: '#8AA0B8' },
+                },
+                invalid: { color: '#C0392B', iconColor: '#C0392B' },
+            },
+        });
+        card.mount('#card-element');
+
+        card.on('change', function (event) {
+            errorDiv.textContent = event.error ? event.error.message : '';
+        });
+
+        btn.addEventListener('click', async function () {
+            btn.disabled    = true;
+            btn.textContent = '⏳ Procesando…';
+
+            try {
+                const { error, paymentIntent } = await stripe.confirmCardPayment(
+                    clientSecret,
+                    { payment_method: { card: card } }
+                );
+
+                if (error) {
+                    errorDiv.textContent = error.message;
+                    btn.disabled    = false;
+                    btn.textContent = btnLabel;
+                } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+                    window.location.href = successUrl;
+                } else {
+                    errorDiv.textContent = 'Estado del pago: ' +
+                        (paymentIntent ? paymentIntent.status : 'desconocido');
+                    btn.disabled    = false;
+                    btn.textContent = btnLabel;
+                }
+            } catch (e) {
+                errorDiv.textContent = 'Error al confirmar el pago: ' + e.message;
+                btn.disabled    = false;
+                btn.textContent = btnLabel;
+            }
+        });
+    } catch (e) {
+        console.error(e);
+        fallar('Error al iniciar Stripe: ' + e.message);
+    }
 })();
 </script>
 {% endif %}
