@@ -1,26 +1,22 @@
 #!/bin/sh
 # docker-entrypoint.sh
 # Punto de entrada unificado para el contenedor ERP Django.
-# Se ejecuta en LOCAL (docker-compose) y en PRODUCCIÓN (Render).
 # IMPORTANTE: este archivo debe tener finales de línea LF (ver .gitattributes).
-# ─────────────────────────────────────────────────────────────────
-set -e   # detener si cualquier comando falla
+set -e
 
-echo "==> [entrypoint] Ejecutando migraciones de base de datos..."
+echo "==> [entrypoint] $(date +%T) Migraciones..."
 python manage.py migrate --noinput
 
-echo "==> [entrypoint] Recolectando archivos estáticos..."
-python manage.py collectstatic --noinput --clear
+echo "==> [entrypoint] $(date +%T) Archivos estáticos..."
+python manage.py collectstatic --noinput
 
-echo "==> [entrypoint] Verificando la configuración de Django..."
-python manage.py check --deploy 2>/dev/null || python manage.py check
+echo "==> [entrypoint] $(date +%T) Verificando configuración..."
+python manage.py check
 
-# Superusuario de prácticas (fines educativos): se crea solo si no existe,
-# es decir, la primera vez que arranca con una base de datos nueva.
-echo "==> [entrypoint] Verificando y creando superusuario..."
+echo "==> [entrypoint] $(date +%T) Verificando superusuario..."
 python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@email.com', '12345')"
 
-echo "==> [entrypoint] Iniciando Gunicorn en 0.0.0.0:${PORT:-8000}..."
+echo "==> [entrypoint] $(date +%T) Iniciando Gunicorn en 0.0.0.0:${PORT:-8000}..."
 exec gunicorn core.wsgi \
     --bind 0.0.0.0:${PORT:-8000} \
     --workers 2 \
