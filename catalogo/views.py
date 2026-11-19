@@ -27,6 +27,8 @@ from django.views.generic import ListView
 
 from productos.models import Producto
 from ventas.models import Pedido
+# W16: la tarea de correo ya NO se importa aquí; la encola el webhook
+# (catalogo/webhook_views.py).
 
 from .checkout_utils import (
     armar_items,
@@ -321,6 +323,10 @@ def pago_exitoso(request, pedido_id):
     PaymentIntent esté 'succeeded' y que pertenezca a este pedido.
     El estado del pedido y el stock los actualiza el webhook
     (única fuente de verdad), no esta vista.
+
+    W16: esta vista NO encola la tarea de correo. La encola el webhook
+    (catalogo/webhook_views.py), que Stripe envía aunque el cliente
+    cierre el navegador y que es idempotente → un solo correo por pedido.
     """
     if request.session.get('ultimo_pedido_id') != pedido_id:
         messages.error(request, 'No encontramos ese pedido en tu sesión.')
@@ -352,6 +358,7 @@ def pago_exitoso(request, pedido_id):
         messages.error(request, 'El pago no está confirmado.')
         return redirect('catalogo:pago_error')
 
+    # Pago verificado: vaciar el carrito y limpiar la sesión.
     _guardar_carrito(request, {})
     request.session.pop('ultimo_pedido_id', None)
     request.session.pop('ultimo_intent_id', None)
@@ -359,7 +366,8 @@ def pago_exitoso(request, pedido_id):
     messages.success(
         request,
         f'¡Pago exitoso! Tu pedido {pedido.numero_pedido} está confirmado. '
-        f'Total: ${pedido.total_pagado}'
+        f'Total: ${pedido.total_pagado}. '
+        f'Recibirás un correo de confirmación pronto.'
     )
     return render(request, 'catalogo/pago_exitoso.html', {'pedido': pedido})
 

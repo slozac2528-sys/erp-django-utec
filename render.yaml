@@ -44,3 +44,8 @@ databases:
     region: oregon
     databaseName: erp_db
     user: erp_user
+ # W16: Celery + Redis (Key Value de Render)
+      - key: REDIS_URL               # Internal Key Value URL (redis://red-...:6379)
+        sync: false
+      - key: CELERY_EMBEDDED_WORKER  # 1 = worker dentro del contenedor web
+        value: "1"
