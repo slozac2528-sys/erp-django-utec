@@ -24,3 +24,11 @@ media/
 # Sistema operativo
 Thumbs.db
 .DS_Store
+
+redis/
+salida.txt
+*.rdb
+
+redis/
+salida.txt
+*.rdb
