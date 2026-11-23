@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'django_filters',
+    'anymail',
     # Apps del ERP
     'clientes',
     'proveedores',
@@ -316,3 +317,46 @@ CELERY_TASK_DEFAULT_QUEUE = 'erp_django'
 
 # En modo EAGER, las excepciones de la tarea se propagan (útil en tests)
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# ── CORREO ELECTRÓNICO (W17) ──────────────────────────────────────────────
+# En desarrollo: backend de consola (imprime el correo en la terminal).
+# En producción: settings_prod.py activa anymail + SendGrid si existe
+#                SENDGRID_API_KEY.
+# En tests: Django usa SIEMPRE locmem (mail.outbox), sin importar esto.
+EMAIL_BACKEND = env(
+    'EMAIL_BACKEND',
+    default='django.core.mail.backends.console.EmailBackend'
+)
+
+# Remitente visible. En SendGrid DEBE ser un "Sender" verificado
+# (Settings → Sender Authentication); si no, SendGrid responde 403.
+DEFAULT_FROM_EMAIL = env(
+    'DEFAULT_FROM_EMAIL',
+    default='ERP Django <noreply@erp-django.com>'
+)
+# Remitente de los correos de error que Django envía a ADMINS
+# (por defecto 'root@localhost', que SendGrid rechazaría).
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# Prefijo SOLO para mail_admins()/mail_managers() (errores del sistema);
+# no afecta a send_mail() ni a EmailMultiAlternatives.
+EMAIL_SUBJECT_PREFIX = '[ERP Django] '
+
+# Administradores que reciben alertas del sistema (stock bajo, errores 500)
+ADMINS = [
+    ('Admin ERP', env('ADMIN_EMAIL', default='admin@erp-django.com')),
+]
+
+# URL pública del sitio para los enlaces de los correos (las tareas
+# Celery no tienen request → no hay build_absolute_uri()).
+# Render define RENDER_EXTERNAL_URL automáticamente en cada servicio.
+SITE_URL = env(
+    'SITE_URL',
+    default=env('RENDER_EXTERNAL_URL', default='http://127.0.0.1:8000')
+).rstrip('/')
+
+# django-anymail (SendGrid)
+SENDGRID_API_KEY = env('SENDGRID_API_KEY', default='')
+ANYMAIL = {
+    'SENDGRID_API_KEY': SENDGRID_API_KEY,
+}

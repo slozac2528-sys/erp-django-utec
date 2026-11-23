@@ -111,6 +111,11 @@ LOGGING = {
 #   AWS_STORAGE_BUCKET_NAME → Nombre del bucket
 #   AWS_S3_REGION_NAME      → Región (ej. us-east-1)
 #   AWS_S3_CUSTOM_DOMAIN    → Dominio CDN opcional
+# core/settings_prod.py — agregar después del bloque LOGGING:
+
+# ── CORREO (W17): SendGrid vía django-anymail ─────────────────────────────
+if SENDGRID_API_KEY:
+    EMAIL_BACKEND = 'anymail.backends.sendgrid.EmailBackend'
 
 _bucket = os.environ.get('AWS_STORAGE_BUCKET_NAME', '')
 
