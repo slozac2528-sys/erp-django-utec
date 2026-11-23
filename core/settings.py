@@ -2,6 +2,10 @@
 import sys
 import environ
 from pathlib import Path
+# core/settings.py — verificar que existe al inicio:
+from datetime import timedelta   # ← agregar si no está
+
+# timedelta es de la biblioteca estándar de Python: no hay que instalar nada.
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -360,3 +364,29 @@ SENDGRID_API_KEY = env('SENDGRID_API_KEY', default='')
 ANYMAIL = {
     'SENDGRID_API_KEY': SENDGRID_API_KEY,
 }
+# core/settings.py — agregar después de CELERY_TASK_ALWAYS_EAGER:
+
+# ── CELERY BEAT — Tareas programadas ──────────────────────────────────────
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+
+    # Verificar stock bajo cada hora
+    'verificar-stock-bajo-cada-hora': {
+        'task':     'ventas.verificar_stock_bajo',
+        'schedule': timedelta(hours=1),
+        'args':     (5,),   # umbral = 5 unidades
+        'options':  {'queue': 'erp_django'},
+    },
+
+    # Reporte de ventas diario a las 8:00 AM (hora México)
+    'reporte-ventas-diario-8am': {
+        'task':     'ventas.reporte_ventas_diario',
+        'schedule': crontab(hour=8, minute=0),
+        'options':  {'queue': 'erp_django'},
+    },
+
+}
+
+# Necesario para que Beat use la zona horaria de Django (no UTC)
+CELERY_BEAT_TIMEZONE = TIME_ZONE   # 'America/Mexico_City'
