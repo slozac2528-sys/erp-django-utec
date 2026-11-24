@@ -315,6 +315,12 @@ ADMINS = [
     ('Admin ERP', env('ADMIN_EMAIL', default='admin@erp-django.com')),
 ]
 
+# Destinatarios del reporte diario de ventas (separados por coma en el entorno)
+REPORTE_VENTAS_DESTINATARIOS = env.list(
+    'REPORTE_VENTAS_DESTINATARIOS',
+    default=[env('ADMIN_EMAIL', default='admin@erp-django.com')],
+)
+
 # URL pública para los enlaces de correos (las tareas Celery no tienen request)
 SITE_URL = env(
     'SITE_URL',

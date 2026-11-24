@@ -9,11 +9,13 @@ Uso:
     enviar_confirmacion_pedido.delay(pedido_id)
 """
 import logging
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
+from django.db.models import Sum
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
@@ -66,8 +68,6 @@ def enviar_confirmacion_pedido(self, pedido_id: int) -> dict:
                     pedido.numero_pedido)
         return {'estado': 'skip', 'pedido_id': pedido_id, 'razon': 'correo ya enviado'}
 
-    # CAMBIO: si el cliente no tiene correo, no hay a quién enviar.
-    # Se registra y la tarea termina sin reintentar.
     correo_destino = (pedido.cliente.correo or '').strip()
     if not correo_destino:
         logger.warning(
@@ -182,55 +182,79 @@ def _enviar_alerta_stock(productos_bajos: list, umbral: int) -> bool:
     return True
 
 
+def _top_productos_del_dia(pedidos, limite: int = 5) -> list:
+    """Agrupa las líneas de los pedidos pagados por producto.
+
+    Usa items_snapshot, así que el top refleja los mismos pedidos que los KPI.
+    """
+    acumulado = {}
+    for pedido in pedidos:
+        for item in _items_con_subtotal(pedido.items_snapshot):
+            clave = item.get('producto_id') or item.get('nombre', 'Sin nombre')
+            fila = acumulado.setdefault(clave, {
+                'nombre': item.get('nombre', 'Sin nombre'),
+                'unidades': 0,
+                'ingreso': Decimal('0.00'),
+            })
+            fila['unidades'] += item['cantidad']
+            fila['ingreso'] += item['subtotal']
+
+    return sorted(acumulado.values(), key=lambda f: f['ingreso'], reverse=True)[:limite]
+
+
 @shared_task(name='ventas.reporte_ventas_diario')
-def reporte_ventas_diario() -> dict:
-    """Genera y envía el reporte diario de ventas al administrador."""
-    from django.db.models import DecimalField, ExpressionWrapper, F, Sum
+def reporte_ventas_diario(fecha_iso: str | None = None) -> dict:
+    """Envía el reporte de ventas.
 
+    Sin fecha_iso usa el día de ayer (para el envío automático de las 8:00).
+    Con fecha_iso (formato AAAA-MM-DD) reporta ese día, útil para pruebas.
+    """
     from configuracion.models import ConfiguracionERP
-    from ventas.models import DetalleVenta, Pedido
+    from ventas.models import Pedido
 
-    hoy = timezone.localdate()
+    if fecha_iso:
+        fecha = date.fromisoformat(fecha_iso)
+    else:
+        fecha = timezone.localdate() - timedelta(days=1)
+
     config = ConfiguracionERP.get_instance()
 
-    pedidos_hoy = Pedido.objects.filter(fecha_pedido__date=hoy, estado='pagado')
-    total_pedidos = pedidos_hoy.count()
-    total_facturado = pedidos_hoy.aggregate(total=Sum('total_pagado'))['total'] or Decimal('0.00')
-
-    top_productos = list(
-        DetalleVenta.objects
-        .filter(venta__fecha__date=hoy)
-        .values(nombre=F('producto__nombre'))
-        .annotate(
-            unidades=Sum('cantidad'),
-            ingreso=Sum(
-                ExpressionWrapper(
-                    F('cantidad') * F('precio_unitario'),
-                    output_field=DecimalField(max_digits=12, decimal_places=2),
-                )
-            ),
-        )
-        .order_by('-ingreso')[:5]
+    pedidos_pagados = list(
+        Pedido.objects.filter(fecha_pedido__date=fecha, estado='pagado')
     )
+    total_pedidos = len(pedidos_pagados)
+    total_facturado = sum(
+        (p.total_pagado or Decimal('0.00') for p in pedidos_pagados),
+        Decimal('0.00'),
+    )
+    top_productos = _top_productos_del_dia(pedidos_pagados)
 
     logger.info('[reporte_diario] %s: %s pedidos, $%s facturados, %s productos top.',
-                hoy, total_pedidos, total_facturado, len(top_productos))
+                fecha, total_pedidos, total_facturado, len(top_productos))
 
-    top_serializable = [{**p, 'ingreso': str(p['ingreso'])} for p in top_productos]
-
-    if settings.ADMINS:
-        _enviar_reporte_ventas(hoy, total_pedidos, total_facturado, top_productos, config)
+    destinatarios = settings.REPORTE_VENTAS_DESTINATARIOS
+    if destinatarios:
+        _enviar_reporte_ventas(fecha, total_pedidos, total_facturado,
+                               top_productos, config, destinatarios)
+    else:
+        logger.warning('[reporte_diario] REPORTE_VENTAS_DESTINATARIOS está vacío; no se envió.')
 
     return {
-        'fecha': str(hoy),
+        'fecha': str(fecha),
         'total_pedidos': total_pedidos,
         'total_facturado': str(total_facturado),
-        'top_productos': top_serializable,
+        'top_productos': [
+            {**p, 'ingreso': str(p['ingreso'])} for p in top_productos
+        ],
     }
 
 
-def _enviar_reporte_ventas(fecha, total_pedidos, total_facturado, top_productos, config) -> None:
-    """Envía el reporte diario al primer administrador configurado."""
+def _enviar_reporte_ventas(fecha, total_pedidos, total_facturado,
+                           top_productos, config, destinatarios) -> None:
+    """Envía el reporte diario a la lista de destinatarios.
+
+    Lanza la excepción si falla el envío, para que el error quede en los logs.
+    """
     url_admin = _url_absoluta('admin:ventas_pedido_changelist')
     fecha_str = fecha.strftime('%d/%m/%Y')
 
@@ -247,18 +271,18 @@ def _enviar_reporte_ventas(fecha, total_pedidos, total_facturado, top_productos,
     texto_plano = render_to_string('emails/reporte_ventas.txt', contexto)
     html_body = render_to_string('emails/reporte_ventas.html', contexto)
 
-    _admin_nombre, admin_correo = settings.ADMINS[0]
-
     mensaje = EmailMultiAlternatives(
         subject=asunto,
         body=texto_plano,
         from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[admin_correo],
+        to=list(destinatarios),
     )
     mensaje.attach_alternative(html_body, 'text/html')
 
     try:
         mensaje.send()
-        logger.info('[reporte_diario] Reporte enviado a %s.', admin_correo)
     except Exception as exc:
         logger.error('[reporte_diario] Error al enviar reporte: %s', exc)
+        raise
+
+    logger.info('[reporte_diario] Reporte enviado a %s.', ', '.join(destinatarios))
