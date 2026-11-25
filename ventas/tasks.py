@@ -17,15 +17,24 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.db.models import Sum
 from django.template.loader import render_to_string
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
 
 def _url_absoluta(nombre_url: str) -> str:
-    """Construye una URL absoluta sin request (las tareas no tienen request)."""
-    return f'{settings.SITE_URL}{reverse(nombre_url)}'
+    """Construye una URL absoluta sin request (las tareas no tienen request).
+
+    Si el nombre de la URL no existe, registra el problema y devuelve la
+    raíz del sitio en lugar de romper el envío del correo.
+    """
+    try:
+        return f'{settings.SITE_URL}{reverse(nombre_url)}'
+    except NoReverseMatch:
+        logger.error('[url] No existe la URL con nombre %r; uso la raíz del sitio.',
+                     nombre_url)
+        return settings.SITE_URL
 
 
 def _items_con_subtotal(items_snapshot: list) -> list:
@@ -57,6 +66,8 @@ def enviar_confirmacion_pedido(self, pedido_id: int) -> dict:
     from configuracion.models import ConfiguracionERP
     from ventas.models import Pedido
 
+    logger.info('[correo_confirmacion] Iniciando tarea para pedido_id=%s.', pedido_id)
+
     try:
         pedido = Pedido.objects.select_related('cliente').get(pk=pedido_id)
     except Pedido.DoesNotExist:
@@ -76,32 +87,41 @@ def enviar_confirmacion_pedido(self, pedido_id: int) -> dict:
         )
         return {'estado': 'skip', 'pedido_id': pedido_id, 'razon': 'cliente sin correo'}
 
-    config = ConfiguracionERP.get_instance()
+    # ── Construir el correo (errores de template/URL no se reintentan) ────
+    try:
+        config = ConfiguracionERP.get_instance()
 
-    contexto = {
-        'pedido': pedido,
-        'config': config,
-        'items': _items_con_subtotal(pedido.items_snapshot),
-        'url_tienda': _url_absoluta('catalogo:catalogo'),
-    }
+        contexto = {
+            'pedido': pedido,
+            'config': config,
+            'items': _items_con_subtotal(pedido.items_snapshot),
+            'url_tienda': _url_absoluta('catalogo:catalogo'),
+        }
 
-    asunto = f'Confirmación de pedido {pedido.numero_pedido} — {config.nombre_empresa}'
-    texto_plano = render_to_string('emails/confirmacion_pedido.txt', contexto)
-    html_body = render_to_string('emails/confirmacion_pedido.html', contexto)
+        asunto = f'Confirmación de pedido {pedido.numero_pedido} — {config.nombre_empresa}'
+        texto_plano = render_to_string('emails/confirmacion_pedido.txt', contexto)
+        html_body = render_to_string('emails/confirmacion_pedido.html', contexto)
 
-    mensaje = EmailMultiAlternatives(
-        subject=asunto,
-        body=texto_plano,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[correo_destino],
-    )
-    mensaje.attach_alternative(html_body, 'text/html')
+        mensaje = EmailMultiAlternatives(
+            subject=asunto,
+            body=texto_plano,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[correo_destino],
+        )
+        mensaje.attach_alternative(html_body, 'text/html')
+    except Exception:
+        logger.exception(
+            '[correo_confirmacion] Error construyendo el correo del pedido %s.',
+            pedido.numero_pedido,
+        )
+        return {'estado': 'error', 'pedido_id': pedido_id, 'razon': 'error al construir correo'}
 
+    # ── Enviar (los errores de envío sí se reintentan) ────────────────────
     try:
         mensaje.send()
     except Exception as exc:
-        logger.error('[correo_confirmacion] Error al enviar para pedido %s: %s',
-                     pedido.numero_pedido, exc)
+        logger.exception('[correo_confirmacion] Error al enviar para pedido %s.',
+                         pedido.numero_pedido)
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
 
     Pedido.objects.filter(pk=pedido.pk).update(correo_enviado=True)
