@@ -107,7 +107,7 @@ def venta_pdf(request, venta_id: int) -> HttpResponse:
 @staff_member_required
 @require_POST
 def enviar_reporte_ahora(request):
-    """Genera y envía el reporte de ventas del día al ADMIN_EMAIL.
+    """Genera y envía el reporte de ventas de HOY a los destinatarios configurados.
 
     Se ejecuta directo en este proceso (sin .delay), por lo que no
     necesita Redis ni worker de Celery. Solo para usuarios staff.
@@ -116,18 +116,24 @@ def enviar_reporte_ahora(request):
 
     destino = request.META.get('HTTP_REFERER') or '/'
 
-    if not settings.ADMINS:
+    destinatarios = settings.REPORTE_VENTAS_DESTINATARIOS
+    if not destinatarios:
         messages.error(
             request,
-            'No hay ADMIN_EMAIL configurado: el reporte no se puede enviar.'
+            'No hay destinatarios configurados para el reporte '
+            '(REPORTE_VENTAS_DESTINATARIOS).'
         )
         return redirect(destino)
 
+    # Fecha de hoy en la zona horaria del ERP (no el día anterior)
+    hoy = timezone.localdate().isoformat()
+
     try:
-        resultado = reporte_ventas_diario()
+        resultado = reporte_ventas_diario(hoy)
         messages.success(
             request,
-            f"Reporte enviado a {settings.ADMINS[0][1]}: "
+            f"Reporte del {resultado['fecha']} enviado a "
+            f"{', '.join(destinatarios)}: "
             f"{resultado['total_pedidos']} pedidos, "
             f"${resultado['total_facturado']} facturados."
         )
