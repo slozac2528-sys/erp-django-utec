@@ -10,7 +10,7 @@ Verificación de seguridad:
 Eventos manejados:
     payment_intent.succeeded      → Pedido.estado = 'pagado'
                                      Descontar stock de productos
-                                     W16: encolar correo de confirmación
+                                     W16: enviar correo de confirmación
     payment_intent.payment_failed → Pedido.estado = 'cancelado'
 """
 import logging
@@ -51,7 +51,6 @@ def stripe_webhook(request) -> HttpResponse:
     except ValueError:
         logger.warning('Webhook: payload inválido recibido.')
         return HttpResponse('Payload inválido.', status=400)
-    # CAMBIO: en stripe-python reciente la excepción está en el paquete raíz
     except stripe.SignatureVerificationError:
         logger.warning('Webhook: firma inválida — posible ataque o secreto incorrecto.')
         return HttpResponse('Firma inválida.', status=400)
@@ -80,7 +79,7 @@ def stripe_webhook(request) -> HttpResponse:
 # ── HANDLERS INTERNOS ──────────────────────────────────────────────────────
 
 def _manejar_pago_exitoso(payment_intent: dict) -> None:
-    """Actualiza el Pedido a 'pagado', descuenta stock y encola el correo."""
+    """Actualiza el Pedido a 'pagado', descuenta stock y envía el correo."""
     pedido_id = _extraer_pedido_id(payment_intent)
     if pedido_id is None:
         return
@@ -100,14 +99,26 @@ def _manejar_pago_exitoso(payment_intent: dict) -> None:
     logger.info('Pedido %s actualizado a "pagado".', pedido.numero_pedido)
 
     _descontar_stock(pedido)
+    _enviar_correo_confirmacion(pedido)
 
-    # El webhook es el ÚNICO punto que dispara el correo (una vez por pedido).
+
+def _enviar_correo_confirmacion(pedido: Pedido) -> None:
+    """Dispara la tarea de correo. Con CELERY_TASK_ALWAYS_EAGER se ejecuta
+    en este mismo proceso; si no, se encola en Redis.
+
+    Los errores se registran y NO se propagan: así Stripe recibe 200 y
+    no reintenta el webhook (el pago ya quedó registrado).
+    """
     try:
         enviar_confirmacion_pedido.delay(pedido.pk)
+        logger.info(
+            'Correo de confirmación disparado para pedido %s (eager=%s).',
+            pedido.numero_pedido, settings.CELERY_TASK_ALWAYS_EAGER,
+        )
     except Exception:
         logger.exception(
-            'Webhook: no se pudo encolar la confirmación del pedido %s '
-            '(¿Redis disponible?).', pedido.numero_pedido,
+            'Error enviando correo de confirmación para pedido %s.',
+            pedido.numero_pedido,
         )
 
 

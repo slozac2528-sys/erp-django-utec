@@ -247,18 +247,15 @@ JAZZMIN_UI_TWEAKS = {
 }
 
 # ── Redis / Celery ────────────────────────────────────────────────────────
-# REDIS_URL definida  → tareas en cola (Redis + worker).
+# REDIS_URL definida  → tareas en cola (requiere worker de Celery corriendo).
 # REDIS_URL vacía     → modo EAGER: .delay() ejecuta en el mismo proceso.
+# CELERY_TASK_ALWAYS_EAGER puede forzarse desde el entorno (p. ej. en Render
+# sin worker): CELERY_TASK_ALWAYS_EAGER=True
 REDIS_URL = env('REDIS_URL', default='')
 
-if REDIS_URL:
-    CELERY_BROKER_URL = REDIS_URL
-    CELERY_RESULT_BACKEND = REDIS_URL
-    CELERY_TASK_ALWAYS_EAGER = False
-else:
-    CELERY_BROKER_URL = 'memory://'
-    CELERY_RESULT_BACKEND = 'cache+memory://'
-    CELERY_TASK_ALWAYS_EAGER = True
+CELERY_BROKER_URL = REDIS_URL or 'memory://'
+CELERY_RESULT_BACKEND = REDIS_URL or 'cache+memory://'
+CELERY_TASK_ALWAYS_EAGER = env.bool('CELERY_TASK_ALWAYS_EAGER', default=not REDIS_URL)
 
 CELERY_RESULT_EXPIRES = 3600
 CELERY_ACCEPT_CONTENT = ['json']
