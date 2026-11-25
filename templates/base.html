@@ -197,6 +197,9 @@
         }
         .btn-erp-sm { padding: .25rem .7rem; font-size: .8rem; }
 
+        /* Botón "Enviar reporte" dentro de la navbar */
+        .erp-report-form { display: inline-flex; margin: 0; }
+
         /* FORMULARIOS */
         .erp-label {
             font-size: .83rem; font-weight: 600; color: var(--clr-muted);
@@ -387,6 +390,19 @@
            class="erp-nav-link {% block nav_carrito %}{% endblock %}">
             🛍️ Carrito <span class="erp-cart-badge">{{ carrito_total_items|default:0 }}</span>
         </a>
+
+        {% if user.is_staff %}
+        <!-- Enviar el reporte de ventas del día al ADMIN_EMAIL (solo staff) -->
+        <form method="post" action="{% url 'ventas:enviar_reporte' %}"
+              class="erp-report-form"
+              onsubmit="return confirm('¿Enviar el reporte de ventas del día a tu correo?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-erp-gold btn-erp-sm"
+                    title="Envía el reporte de ventas de hoy a ADMIN_EMAIL">
+                📊 Enviar reporte
+            </button>
+        </form>
+        {% endif %}
 
         <a href="/admin/" class="erp-nav-link">Admin</a>
         {% if user.is_authenticated %}

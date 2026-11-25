@@ -5,6 +5,7 @@ from urllib.parse import unquote, urlparse
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.staticfiles import finders
 from django.http import HttpResponse
@@ -12,6 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django.views.generic import DeleteView, DetailView, ListView
 
 from configuracion.models import ConfiguracionERP
@@ -100,6 +102,39 @@ def venta_pdf(request, venta_id: int) -> HttpResponse:
     if resultado.err:
         return HttpResponse("Error al generar el PDF de la factura.", status=500)
     return response
+
+
+@staff_member_required
+@require_POST
+def enviar_reporte_ahora(request):
+    """Genera y envía el reporte de ventas del día al ADMIN_EMAIL.
+
+    Se ejecuta directo en este proceso (sin .delay), por lo que no
+    necesita Redis ni worker de Celery. Solo para usuarios staff.
+    """
+    from ventas.tasks import reporte_ventas_diario  # import local, como en W18
+
+    destino = request.META.get('HTTP_REFERER') or '/'
+
+    if not settings.ADMINS:
+        messages.error(
+            request,
+            'No hay ADMIN_EMAIL configurado: el reporte no se puede enviar.'
+        )
+        return redirect(destino)
+
+    try:
+        resultado = reporte_ventas_diario()
+        messages.success(
+            request,
+            f"Reporte enviado a {settings.ADMINS[0][1]}: "
+            f"{resultado['total_pedidos']} pedidos, "
+            f"${resultado['total_facturado']} facturados."
+        )
+    except Exception as exc:
+        messages.error(request, f'No se pudo enviar el reporte: {exc}')
+
+    return redirect(destino)
 
 
 class VentaListView(ListView):
