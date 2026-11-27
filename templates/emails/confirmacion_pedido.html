@@ -4,205 +4,125 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Confirmación de pedido {{ pedido.numero_pedido }}</title>
-    <style>
-        /* Estilos en <head>: la mayoría de clientes los respetan; los
-           datos críticos además llevan style="" en línea. */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 15px;
-            background: #F5F7FA;
-            color: #1A1A2E;
-        }
-        .wrapper {
-            max-width: 600px;
-            margin: 24px auto;
-            background: #FFFFFF;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 16px rgba(10,35,66,.1);
-        }
-        /* Encabezado */
-        .header {
-            background: #0A2342;
-            padding: 28px 32px;
-            border-bottom: 4px solid #B8860B;
-        }
-        .header-title {
-            color: #D4AF37;
-            font-size: 22px;
-            font-weight: bold;
-            letter-spacing: .03em;
-        }
-        .header-sub {
-            color: rgba(255,255,255,.7);
-            font-size: 13px;
-            margin-top: 4px;
-        }
-        /* Cuerpo */
-        .body { padding: 28px 32px; }
-        .greeting {
-            font-size: 17px;
-            margin-bottom: 16px;
-            color: #0A2342;
-        }
-        /* Caja del pedido */
-        .pedido-box {
-            background: #E8F0FB;
-            border-left: 5px solid #0A2342;
-            border-radius: 0 8px 8px 0;
-            padding: 16px 20px;
-            margin: 20px 0;
-        }
-        .pedido-num {
-            font-size: 20px;
-            font-weight: bold;
-            color: #0A2342;
-        }
-        .pedido-total {
-            font-size: 18px;
-            font-weight: bold;
-            color: #B8860B;
-            margin-top: 4px;
-        }
-        /* Tabla de productos */
-        .productos-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        .productos-table th {
-            background: #0A2342;
-            color: #FFFFFF;
-            padding: 10px 14px;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: .05em;
-            text-align: left;
-        }
-        .productos-table th.num { text-align: right; }
-        .productos-table td {
-            padding: 9px 14px;
-            border-bottom: 1px solid #E8F0FB;
-            font-size: 14px;
-        }
-        .productos-table td.num { text-align: right; }
-        .productos-table tr:last-child td { border-bottom: none; }
-        .total-row td {
-            background: #FDF8E8;
-            border-top: 2px solid #B8860B;
-            font-weight: bold;
-            font-size: 15px;
-            padding: 12px 14px;
-        }
-        .total-valor { color: #B8860B; text-align: right; }
-        /* CTA */
-        .cta-section { text-align: center; margin: 24px 0; }
-        .cta-btn {
-            display: inline-block;
-            background: #B8860B;
-            color: #FFFFFF;
-            padding: 12px 28px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 15px;
-        }
-        /* Pie */
-        .footer {
-            background: #F5F7FA;
-            border-top: 1px solid #C8D8EC;
-            padding: 16px 32px;
-            font-size: 12px;
-            color: #5A6A7E;
-            text-align: center;
-        }
-    </style>
 </head>
-<body>
-<div class="wrapper">
+<body style="margin:0;padding:0;background:#E8D5A8;font-family:Georgia,'Times New Roman',serif;font-size:15px;color:#3B2412;">
 
-    <!-- ENCABEZADO -->
-    <div class="header">
-        <div class="header-title">✅ ¡Pago confirmado!</div>
-        <div class="header-sub">{{ config.nombre_empresa }}</div>
-    </div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#E8D5A8;">
+<tr><td align="center" style="padding:24px 12px;">
 
-    <!-- CUERPO -->
-    <div class="body">
-        <p class="greeting">
-            Hola, <strong>{{ pedido.cliente.nombre }}</strong>:
-        </p>
-        <p style="color:#5A6A7E;margin-bottom:16px;">
-            Gracias por tu compra. Tu pedido ha sido confirmado
-            y está siendo procesado.
-        </p>
+    <!-- Marco punteado exterior -->
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;border:2px dashed #C9962B;background:#F7E9CC;">
+    <tr><td style="padding:6px;">
 
-        <!-- Número y total del pedido -->
-        <div class="pedido-box">
-            <div class="pedido-num">
-                Pedido {{ pedido.numero_pedido }}
-            </div>
-            <div class="pedido-total">
-                Total pagado: ${{ pedido.total_pagado }}
-            </div>
-            <div style="color:#5A6A7E;font-size:13px;margin-top:6px;">
-                Fecha: {{ pedido.fecha_pedido|date:"d/m/Y H:i" }}
-            </div>
-        </div>
+        <!-- Tarjeta interior -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:2px solid #4A2A12;background:#F7E9CC;">
 
-        <!-- Tabla de productos del snapshot -->
-        {% if items %}
-        <table class="productos-table">
-            <thead>
-                <tr>
-                    <th>Producto</th>
-                    <th class="num">Precio</th>
-                    <th class="num">Cant.</th>
-                    <th class="num">Subtotal</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in items %}
-                <tr>
-                    <td>{{ item.nombre }}</td>
-                    <td class="num">${{ item.precio }}</td>
-                    <td class="num">{{ item.cantidad }}</td>
-                    <td class="num">${{ item.subtotal }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr class="total-row">
-                    <td colspan="3">Total (IVA incluido):</td>
-                    <td class="total-valor">${{ pedido.total_pagado }}</td>
-                </tr>
-            </tfoot>
+            <!-- ENCABEZADO -->
+            <tr>
+                <td style="background:#4A2A12;padding:26px 28px;border-bottom:3px solid #C9962B;">
+                    <div style="font-family:'Courier New',Courier,monospace;font-size:24px;font-weight:bold;color:#E3A82B;letter-spacing:.04em;">
+                        &#128014; &iexcl;Pago confirmado! &#128020;
+                    </div>
+                    <div style="font-family:'Courier New',Courier,monospace;font-size:13px;color:#E8D5A8;margin-top:6px;">
+                        {{ config.nombre_empresa }}
+                    </div>
+                </td>
+            </tr>
+
+            <!-- CUERPO -->
+            <tr>
+                <td style="padding:28px;">
+
+                    <p style="margin:0 0 14px 0;font-size:17px;color:#4A2A12;">
+                        Hola, <strong>{{ pedido.cliente.nombre }}</strong>:
+                    </p>
+                    <p style="margin:0 0 18px 0;color:#6B4A2E;line-height:1.5;">
+                        Gracias por tu compra. Tu pedido ha sido confirmado
+                        y est&aacute; siendo procesado. &iexcl;Los caballos ya
+                        van al galope y las gallinas ya est&aacute;n cacareando
+                        la noticia! &#128014;&#128020;
+                    </p>
+
+                    <!-- Caja del pedido -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:2px dashed #C9962B;margin:20px 0;">
+                    <tr><td style="padding:4px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:2px solid #4A2A12;background:#FBF3DF;">
+                        <tr><td style="padding:16px 20px;">
+                            <div style="font-family:'Courier New',Courier,monospace;font-size:20px;font-weight:bold;color:#4A2A12;">
+                                Pedido {{ pedido.numero_pedido }}
+                            </div>
+                            <div style="font-family:'Courier New',Courier,monospace;font-size:18px;font-weight:bold;color:#9A6A0E;margin-top:6px;">
+                                Total pagado: ${{ pedido.total_pagado }}
+                            </div>
+                            <div style="color:#6B4A2E;font-size:13px;margin-top:8px;">
+                                Fecha: {{ pedido.fecha_pedido|date:"d/m/Y H:i" }}
+                            </div>
+                        </td></tr>
+                        </table>
+                    </td></tr>
+                    </table>
+
+                    <!-- Tabla de productos -->
+                    {% if items %}
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:20px 0;border:2px solid #4A2A12;">
+                        <thead>
+                            <tr>
+                                <th align="left" style="background:#4A2A12;color:#E3A82B;padding:10px 14px;font-family:'Courier New',Courier,monospace;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Producto</th>
+                                <th align="right" style="background:#4A2A12;color:#E3A82B;padding:10px 14px;font-family:'Courier New',Courier,monospace;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Precio</th>
+                                <th align="right" style="background:#4A2A12;color:#E3A82B;padding:10px 14px;font-family:'Courier New',Courier,monospace;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Cant.</th>
+                                <th align="right" style="background:#4A2A12;color:#E3A82B;padding:10px 14px;font-family:'Courier New',Courier,monospace;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td style="padding:10px 14px;border-bottom:1px dashed #C9962B;font-size:14px;color:#3B2412;">{{ item.nombre }}</td>
+                                <td align="right" style="padding:10px 14px;border-bottom:1px dashed #C9962B;font-size:14px;color:#3B2412;">${{ item.precio }}</td>
+                                <td align="right" style="padding:10px 14px;border-bottom:1px dashed #C9962B;font-size:14px;color:#3B2412;">{{ item.cantidad }}</td>
+                                <td align="right" style="padding:10px 14px;border-bottom:1px dashed #C9962B;font-size:14px;color:#3B2412;">${{ item.subtotal }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3" style="background:#F2DCA8;border-top:2px solid #4A2A12;padding:12px 14px;font-family:'Courier New',Courier,monospace;font-weight:bold;font-size:15px;color:#4A2A12;">Total (IVA incluido):</td>
+                                <td align="right" style="background:#F2DCA8;border-top:2px solid #4A2A12;padding:12px 14px;font-family:'Courier New',Courier,monospace;font-weight:bold;font-size:15px;color:#8A5A0B;">${{ pedido.total_pagado }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    {% endif %}
+
+                    <!-- Bot&oacute;n -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0;">
+                    <tr><td align="center">
+                        <a href="{{ url_tienda }}" style="display:inline-block;background:#E3A82B;color:#4A2A12;padding:12px 28px;border:2px solid #4A2A12;border-radius:8px;text-decoration:none;font-family:'Courier New',Courier,monospace;font-weight:bold;font-size:15px;">
+                            &#128717; Volver a la tienda
+                        </a>
+                    </td></tr>
+                    </table>
+
+                    <p style="margin:8px 0 0 0;color:#6B4A2E;font-size:13px;line-height:1.5;">
+                        Si tienes preguntas, cont&aacute;ctanos.<br>
+                        Equipo de {{ config.nombre_empresa }}
+                    </p>
+                </td>
+            </tr>
+
+            <!-- PIE -->
+            <tr>
+                <td align="center" style="background:#E8D5A8;border-top:2px dashed #C9962B;padding:16px 28px;font-family:'Courier New',Courier,monospace;font-size:12px;color:#6B4A2E;">
+                    <div style="font-size:18px;letter-spacing:.3em;margin-bottom:8px;">&#128014; &#128020; &#128014; &#128020; &#128014;</div>
+                    <div>{{ config.nombre_empresa }}{% if config.rfc %} &middot; RFC: {{ config.rfc }}{% endif %}</div>
+                    <div style="margin-top:4px;">Este correo fue generado autom&aacute;ticamente. No responder directamente.</div>
+                </td>
+            </tr>
+
         </table>
-        {% endif %}
+    </td></tr>
+    </table>
 
-        <!-- Botón CTA -->
-        <div class="cta-section">
-            <a href="{{ url_tienda }}" class="cta-btn">
-                Volver a la tienda
-            </a>
-        </div>
+</td></tr>
+</table>
 
-        <p style="color:#5A6A7E;font-size:13px;margin-top:8px;">
-            Si tienes preguntas, contáctanos.<br>
-            Equipo de {{ config.nombre_empresa }}
-        </p>
-    </div>
-
-    <!-- PIE -->
-    <div class="footer">
-        <p>{{ config.nombre_empresa }}
-           {% if config.rfc %}· RFC: {{ config.rfc }}{% endif %}</p>
-        <p style="margin-top:4px;">
-            Este correo fue generado automáticamente. No responder directamente.
-        </p>
-    </div>
-
-</div>
 </body>
 </html>
